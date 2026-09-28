@@ -1,0 +1,6 @@
+<!doctype html><html <?php language_attributes(); ?>><head><meta charset="<?php bloginfo('charset'); ?>"><meta name="viewport" content="width=device-width, initial-scale=1"><?php wp_head(); ?></head>
+<body <?php body_class(); ?>><?php wp_body_open(); ?><a class="screen-reader-text" href="#main">Skip to content</a>
+<div class="topbar"><div class="wrap"><span><?php echo esc_html(bcst_t('Fluid measurement & control')); ?></span><span><?php echo esc_html(bcst_setting('phone')); ?> <?php if(bcst_setting('email')): ?><a href="mailto:<?php echo esc_attr(bcst_setting('email')); ?>"><?php echo esc_html(bcst_setting('email')); ?></a><?php endif; ?></span></div></div>
+<header class="site-header"><div class="wrap"><div class="header-row"><?php if(has_custom_logo()): the_custom_logo();else: ?><a class="brand" href="<?php echo esc_url(bcst_home()); ?>"><?php bloginfo('name'); ?></a><?php endif; ?><nav aria-label="Main navigation"><?php wp_nav_menu(array('theme_location'=>'primary','container'=>false,'fallback_cb'=>'bcst_default_menu','depth'=>3)); ?></nav></div>
+<?php if(function_exists('pll_the_languages')): ?><ul class="languages"><?php pll_the_languages(array('hide_if_empty'=>1,'hide_if_no_translation'=>1)); ?></ul><?php endif; ?></div></header>
+<main id="main">

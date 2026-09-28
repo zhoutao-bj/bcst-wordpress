@@ -1,0 +1,13 @@
+/wp-config.php
+/.env
+/wp-content/uploads/
+/wp-content/cache/
+/wp-content/upgrade/
+/wp-content/debug.log
+*.sql
+*.sql.gz
+*.log
+/.idea/
+/.vscode/
+/node_modules/
+/docs/

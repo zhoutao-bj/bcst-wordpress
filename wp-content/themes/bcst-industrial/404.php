@@ -1,0 +1,1 @@
+<?php get_header(); ?><div class="wrap section"><p class="eyebrow">404</p><h1><?php echo esc_html(bcst_t('Page not found')); ?></h1><?php get_search_form(); ?><a class="button" href="<?php echo esc_url(bcst_home()); ?>"><?php echo esc_html(bcst_t('Back to home')); ?></a></div><?php get_footer(); ?>
