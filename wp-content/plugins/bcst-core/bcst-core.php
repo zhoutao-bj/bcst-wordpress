@@ -8,6 +8,7 @@
 defined('ABSPATH') || exit;
 require_once __DIR__ . '/multilingual-setup.php';
 require_once __DIR__ . '/bailian.php';
+require_once __DIR__ . '/batch-translation.php';
 
 function bcst_register() {
     register_post_type('bcst_product', array('labels'=>array('name'=>'产品','singular_name'=>'产品','add_new_item'=>'添加产品'), 'public'=>true,'has_archive'=>'products','rewrite'=>array('slug'=>'product'),'show_in_rest'=>true,'menu_icon'=>'dashicons-products','supports'=>array('title','editor','excerpt','thumbnail','revisions','page-attributes')));

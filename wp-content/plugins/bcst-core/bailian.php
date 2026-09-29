@@ -11,6 +11,22 @@ function bcst_bailian_regions() {
 function bcst_bailian_config() {
     return wp_parse_args(get_option('bcst_bailian', array()), array('model'=>'qwen-mt-flash','region'=>'cn-beijing','workspace'=>'','secret'=>''));
 }
+// Public Polylang API: include languages with no published content yet.
+function bcst_bailian_languages() {
+    if (!function_exists('pll_languages_list')) return array();
+    $slugs = array_values(pll_languages_list(array('fields'=>'slug','hide_empty'=>false)));
+    $names = array_values(pll_languages_list(array('fields'=>'name','hide_empty'=>false)));
+    $locales = array_values(pll_languages_list(array('fields'=>'locale','hide_empty'=>false)));
+    $languages = array();
+    foreach ($slugs as $index=>$slug) {
+        $locale = strtolower(str_replace('-', '_', $locales[$index] ?? $slug));
+        $base = explode('_', $locale)[0];
+        // API language codes differ from WordPress regional locales and custom URL slugs.
+        $api = $base === 'zh' && preg_match('/(?:tw|hk|hant)/', $locale) ? 'zh_tw' : $base;
+        $languages[$slug] = array('name'=>$names[$index] ?? $slug,'api'=>$api,'locale'=>$locale);
+    }
+    return $languages;
+}
 function bcst_bailian_crypto_key() {
     return hash('sha256', wp_salt('auth') . wp_salt('secure_auth'), true);
 }
@@ -35,26 +51,28 @@ function bcst_bailian_endpoint($config) {
     return 'https://' . $config['workspace'] . '.' . $config['region'] . '.maas.aliyuncs.com/compatible-mode/v1/chat/completions';
 }
 function bcst_bailian_translate($text, $source, $target) {
-    // Only enable the project's languages explicitly listed by the Qwen-MT docs.
-    $languages = array('en'=>'English','es'=>'Spanish','ru'=>'Russian');
-    if (!isset($languages[$source], $languages[$target])) throw new Exception('Qwen-MT 官方支持列表未包含蒙古语。本接入暂只支持英、西、俄互译，不会自动改用其他模型。');
+    // Mongolian is user-requested; let the provider decide availability, never fake success.
+    $languages = bcst_bailian_languages();
+    if (!isset($languages[$source], $languages[$target])) throw new Exception('源语言或目标语言已不存在，请在 Polylang 配置语言后重新创建任务。');
     if (!is_string($text) || trim($text) === '' || strlen($text) > 6000) throw new Exception('测试文字不能为空，且最多 6000 字节。长文批量翻译需分段处理。');
     $config = bcst_bailian_config();
     if (!in_array($config['model'], bcst_bailian_models(), true)) throw new Exception('模型配置无效。');
     $url = bcst_bailian_endpoint($config);
+    $translation_options = array('source_lang'=>$languages[$source]['api'],'target_lang'=>$languages[$target]['api']);
+    if ($languages[$source]['api'] === 'mn' || $languages[$target]['api'] === 'mn') $translation_options['domains'] = 'Industrial valves and instrumentation. Mongolian means modern Khalkha Mongolian written in Cyrillic as used in Mongolia, not Russian or traditional Mongolian script. Preserve model numbers, quantities and units.';
     $response = wp_safe_remote_post($url, array(
         'timeout'=>60, 'redirection'=>0, 'limit_response_size'=>131072,
         'headers'=>array('Authorization'=>'Bearer ' . bcst_bailian_key($config),'Content-Type'=>'application/json'),
         'body'=>wp_json_encode(array('model'=>$config['model'],'stream'=>false,
             'messages'=>array(array('role'=>'user','content'=>$text)),
-            'translation_options'=>array('source_lang'=>$languages[$source],'target_lang'=>$languages[$target])))
+            'translation_options'=>$translation_options))
     ));
     // Never log headers, credentials, request bodies or raw provider error bodies.
     if (is_wp_error($response)) throw new Exception('请求失败或超时，请检查服务器网络及百炼 API Host。不会自动重试，避免重复计费。');
     $status = wp_remote_retrieve_response_code($response);
     if ($status !== 200) {
         $hints = array(400=>'检查业务空间、模型和请求参数',401=>'检查 API Key 与地域是否匹配',403=>'检查模型权限',404=>'检查业务空间 API Host 和模型',429=>'额度不足或触发限流');
-        throw new Exception('百炼返回 HTTP ' . (int)$status . '：' . ($hints[$status] ?? '服务异常，请稍后再试') . '。');
+        throw new Exception('百炼返回 HTTP ' . (int)$status . '：' . ($hints[$status] ?? '服务异常，请稍后再试') . '。请确认当前模型接受语言代码 ' . $languages[$source]['api'] . ' → ' . $languages[$target]['api'] . '。');
     }
     $data = json_decode(wp_remote_retrieve_body($response), true);
     $choice = $data['choices'][0] ?? array();
@@ -68,7 +86,7 @@ add_action('admin_menu', function () {
 function bcst_bailian_page() {
     if (!current_user_can('manage_options')) return;
     $config = bcst_bailian_config();
-    echo '<div class="wrap"><h1>阿里云百炼翻译设置</h1><p>配置仅供服务器调用，不在前台输出密钥。本页先验证 Qwen-MT 接口，尚未接通文章/产品勾选批量翻译。</p><div class="notice notice-warning inline"><p>Qwen-MT 尚未列出蒙古语支持。英、西、俄可以测试；蒙古语方案需要单独确认。本页不会自动切换到通用模型。</p></div>';
+    echo '<div class="wrap"><h1>阿里云百炼翻译设置</h1><p>配置仅供服务器调用，不在前台输出密钥。保存后可在产品/文章列表勾选内容，通过批量操作进入翻译任务。</p><div class="notice notice-warning inline"><p>蒙古语已开放调用，使用当前模型并要求西里尔蒙古文；官方未列出支持保证，请先测试。接口拒绝时显示失败，不自动换模型。译文须人工审核。</p></div>';
     $notice = get_transient('bcst_bailian_notice_' . get_current_user_id());
     if ($notice) { echo '<div class="notice notice-info inline"><p>' . esc_html($notice) . '</p></div>'; delete_transient('bcst_bailian_notice_' . get_current_user_id()); }
     echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '"><input type="hidden" name="action" value="bcst_bailian_save">';
@@ -80,7 +98,13 @@ function bcst_bailian_page() {
     echo '</select></label></p><p><label>API Key<br><input type="password" name="api_key" value="" autocomplete="new-password" class="regular-text" maxlength="512"></label><br>' . ($config['secret'] ? '已保存密钥；留空保留，填写新值替换。' : '尚未配置密钥。') . '</p><p><label><input type="checkbox" name="clear_key" value="1">清除已保存的密钥</label></p><p>密钥加密存入数据库，不回显、不提交 Git。加密不等于防住服务器管理员；备份仍需保护。更换 WordPress 安全盐后需要重新填写。</p>';
     submit_button('保存配置'); echo '</form><hr><h2>测试翻译</h2><p>先保存上方配置。点击测试将把下面文字发送给阿里云，可能产生按量费用；只显示结果，不发布或修改任何产品、文章。</p><form method="post" action="' . esc_url(admin_url('admin-post.php')) . '"><input type="hidden" name="action" value="bcst_bailian_test">';
     wp_nonce_field('bcst_bailian_test');
-    echo '<p>源语言：英语（en）。目标语言：<select name="target"><option value="es">西班牙语</option><option value="ru">俄语</option></select></p><textarea name="text" rows="5" class="large-text" required maxlength="1500">Pneumatic Control Valve. Model: BCST-100. Please confirm the operating pressure and temperature before quotation.</textarea><p><label><input type="checkbox" name="consent" value="1" required>同意发送此测试文本到阿里云并承担可能的接口费用</label></p>';
+    $languages = bcst_bailian_languages();
+    foreach (array('source'=>'源语言','target'=>'目标语言') as $field=>$label) {
+        echo '<p><label>' . esc_html($label) . ' <select name="' . esc_attr($field) . '">';
+        foreach ($languages as $slug=>$language) echo '<option value="' . esc_attr($slug) . '">' . esc_html($language['name'] . ' (' . $slug . ' / API: ' . $language['api'] . ')') . '</option>';
+        echo '</select></label></p>';
+    }
+    echo '<p>选项自动读取 Polylang；请选择与测试文字一致的源语言。</p><textarea name="text" rows="5" class="large-text" required maxlength="1500">Pneumatic Control Valve. Model: BCST-100. Please confirm the operating pressure and temperature before quotation.</textarea><p><label><input type="checkbox" name="consent" value="1" required>同意发送此测试文本到阿里云并承担可能的接口费用</label></p>';
     submit_button('发送测试（可能计费）','secondary'); echo '</form></div>';
 }
 function bcst_bailian_finish($message) {
@@ -119,7 +143,8 @@ add_action('admin_post_bcst_bailian_test', function () {
         $rate = 'bcst_bailian_test_' . get_current_user_id();
         if (get_transient($rate)) throw new Exception('请间隔至少 60 秒再测试，避免重复请求。');
         set_transient($rate,1,60);
-        $result = bcst_bailian_translate(bcst_bailian_input('text'),'en',bcst_bailian_input('target'));
+        if (bcst_bailian_input('source') === bcst_bailian_input('target')) throw new Exception('测试请选择不同的源语言和目标语言。');
+        $result = bcst_bailian_translate(bcst_bailian_input('text'),bcst_bailian_input('source'),bcst_bailian_input('target'));
         $message = '测试成功。Token 用量：' . $result['tokens'] . '。译文：' . $result['text'];
     } catch (Throwable $e) { $message = $e->getMessage(); }
     bcst_bailian_finish($message);
