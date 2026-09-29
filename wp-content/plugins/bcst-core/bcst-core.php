@@ -9,6 +9,7 @@ defined('ABSPATH') || exit;
 require_once __DIR__ . '/multilingual-setup.php';
 require_once __DIR__ . '/bailian.php';
 require_once __DIR__ . '/batch-translation.php';
+require_once __DIR__ . '/company-logo.php';
 
 function bcst_register() {
     register_post_type('bcst_product', array('labels'=>array('name'=>'产品','singular_name'=>'产品','add_new_item'=>'添加产品'), 'public'=>true,'has_archive'=>'products','rewrite'=>array('slug'=>'product'),'show_in_rest'=>true,'menu_icon'=>'dashicons-products','supports'=>array('title','editor','excerpt','thumbnail','revisions','page-attributes')));
@@ -77,6 +78,7 @@ add_action('admin_init',function(){register_setting('bcst_settings','bcst_settin
 function bcst_settings_page(){
     if(!current_user_can('manage_options'))return;
     echo '<div class="wrap"><h1>工业站设置</h1><p>询盘同时保存在后台。邮件投递需配置 SMTP 并实际测试。WhatsApp 填国家码加号码，仅数字。</p><form method="post" action="options.php">';settings_fields('bcst_settings');$values=get_option('bcst_settings',array());
+    bcst_company_logo_control();
     foreach(array('email'=>'销售收件邮箱','phone'=>'联系电话','whatsapp'=>'WhatsApp','address'=>'公司地址','headline'=>'首页标题','intro'=>'首页介绍','facebook'=>'Facebook 链接','tiktok'=>'TikTok 链接') as $key=>$label)echo '<p><label>'.esc_html($label).'<br><textarea class="large-text" name="bcst_settings['.esc_attr($key).']">'.esc_textarea($values[$key]??'').'</textarea></label></p>';
     submit_button();echo '</form><hr><h2>初始化页面</h2><p>补齐基础页面与示例产品草稿，不覆盖现有内容。示例分类仅用于演示，可按客户目录调整；产品必须补齐真实参数后发布。首页设置只在首次执行时更改。</p><form action="'.esc_url(admin_url('admin-post.php')).'" method="post"><input type="hidden" name="action" value="bcst_setup">';wp_nonce_field('bcst_setup');submit_button('创建基础页面');echo '</form><p><a class="button" href="'.esc_url(wp_nonce_url(admin_url('admin-post.php?action=bcst_export'),'bcst_export')).'">导出最近 1000 条询盘 CSV</a></p></div>';
 }

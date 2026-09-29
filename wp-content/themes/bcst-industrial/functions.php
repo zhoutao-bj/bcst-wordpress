@@ -1,6 +1,7 @@
 <?php
 defined('ABSPATH') || exit;
 require_once __DIR__ . '/product-navigation.php';
+require_once __DIR__ . '/site-layout.php';
 function bcst_t($text){return function_exists('bcst_text')?bcst_text($text):$text;}
 function bcst_setting($key,$default=''){$s=get_option('bcst_settings',array());return !empty($s[$key])?$s[$key]:$default;}
 function bcst_page_url($slug){$p=get_page_by_path($slug);if(!$p)return home_url('/'.$slug.'/');$id=$p->ID;if(function_exists('pll_get_post'))$id=pll_get_post($id)?:$id;return get_permalink($id);}
