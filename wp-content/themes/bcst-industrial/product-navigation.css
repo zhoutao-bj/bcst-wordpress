@@ -1,0 +1,21 @@
+.bcst-product-nav .bcst-category-toggle{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;margin:0;border:0;background:transparent;color:inherit;cursor:pointer;vertical-align:middle}
+.bcst-product-nav .bcst-category-toggle:focus-visible{outline:2px solid #147c72;outline-offset:2px}
+.menu .bcst-product-nav .bcst-category-menu{padding:6px 0;margin:0;width:235px;min-width:0;max-width:calc(100vw - 32px);border:1px solid #dce4df;border-radius:4px;background:#fff;z-index:100;color:#132f3b}
+.bcst-category-menu>li{position:relative;padding:0!important;margin:0;display:block}
+.menu .bcst-category-menu>li>a{display:block;padding:10px 36px 10px 14px;font-weight:400;line-height:1.5;overflow-wrap:anywhere}
+.bcst-category-menu>li>.bcst-category-toggle{position:absolute;right:3px;top:7px}
+.bcst-category-menu>li>.bcst-category-toggle span{transform:rotate(-90deg)}
+.menu .bcst-category-menu>li:hover,.menu .bcst-category-menu>li:focus-within{background:#edf4ef}
+.menu .bcst-product-nav li.bcst-open>.sub-menu,.menu .bcst-product-nav.bcst-open>.sub-menu{display:block}
+.menu .bcst-product-nav.bcst-closed>.sub-menu,.menu .bcst-product-nav li.bcst-closed>.sub-menu{display:none}
+.menu .bcst-product-nav .bcst-fly-left>.sub-menu{left:auto;right:100%}
+.menu .bcst-product-nav.bcst-align-right>.sub-menu{left:auto;right:0}
+@media(max-width:850px){
+ .menu .bcst-product-nav{width:100%}
+ .menu .bcst-product-nav .bcst-category-menu{position:static;width:auto;max-width:none;margin-left:12px;box-shadow:none;border:0;border-left:2px solid #dce4df}
+ .menu .bcst-product-nav li:hover>.sub-menu,.menu .bcst-product-nav li:focus-within>.sub-menu,.menu .bcst-product-nav:hover>.sub-menu,.menu .bcst-product-nav:focus-within>.sub-menu{display:none}
+ .menu .bcst-product-nav.bcst-open>.sub-menu,.menu .bcst-product-nav li.bcst-open>.sub-menu{display:block}
+ .bcst-category-menu>li>.bcst-category-toggle span{transform:none}
+ .bcst-product-nav .bcst-category-toggle{width:40px;height:40px}
+ .bcst-category-menu>li>.bcst-category-toggle{top:0}
+}
