@@ -30,13 +30,13 @@ $footer_intro=bcst_setting('footer_intro',bcst_setting('intro'));
 <?php if(bcst_setting('email') || bcst_setting('phone') || bcst_setting('address')): ?><section class="bcst-footer-group bcst-footer-contact"><h2><?php echo esc_html(bcst_t('Contact Us')); ?></h2>
 <?php if(is_email(bcst_setting('email'))): ?><a href="<?php echo esc_url('mailto:'.bcst_setting('email')); ?>"><?php echo esc_html(bcst_setting('email')); ?></a><?php endif; ?>
 <?php if(bcst_setting('phone')): ?><p><?php echo esc_html(bcst_setting('phone')); ?></p><?php endif; ?>
-<?php if(bcst_setting('address')): ?><p><?php echo nl2br(esc_html(bcst_setting('address'))); ?></p><?php endif; ?>
+<?php if(bcst_setting('address')): ?><p><?php echo nl2br(esc_html(bcst_t(bcst_setting('address')))); ?></p><?php endif; ?>
 </section><?php endif; ?>
 </div></div>
-<div class="copyright bcst-footer-bottom"><div><?php if(get_privacy_policy_url()): ?><a href="<?php echo esc_url(get_privacy_policy_url()); ?>"><?php echo esc_html(bcst_t('Privacy policy')); ?></a><?php endif; ?></div><p>Copyright &copy; <?php echo esc_html(wp_date('Y')); ?> <?php bloginfo('name'); ?> | <?php echo esc_html(bcst_t('All Rights Reserved.')); ?></p></div>
+<div class="copyright bcst-footer-bottom"><div><?php if(get_privacy_policy_url()): ?><a href="<?php echo esc_url(get_privacy_policy_url()); ?>"><?php echo esc_html(bcst_t('Privacy policy')); ?></a><?php endif; ?></div><p><?php echo esc_html(bcst_t('Copyright')); ?> &copy; <?php echo esc_html(wp_date('Y')); ?> <?php bloginfo('name'); ?> | <?php echo esc_html(bcst_t('All Rights Reserved.')); ?></p></div>
 </div></footer>
 <?php if($social_links): ?>
-<nav class="bcst-social-float" aria-label="Social media">
+<nav class="bcst-social-float" aria-label="<?php echo esc_attr(bcst_t('Social media')); ?>">
 <?php foreach($social_links as $key=>$link): ?>
 <a class="bcst-social-button bcst-social-<?php echo esc_attr($key); ?>" href="<?php echo esc_url($link['url']); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html($link['label']); ?> <span aria-hidden="true">↗</span></a>
 <?php endforeach; ?>

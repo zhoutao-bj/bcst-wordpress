@@ -75,13 +75,13 @@ function bcst_contact_team(){
         if(empty($person['name']))continue;
         $html.='<article class="bcst-contact-card">';
         if(!empty($person['photo']))$html.=wp_get_attachment_image($person['photo'],'thumbnail',false,array('class'=>'bcst-person-avatar','alt'=>$person['name']));
-        $html.='<h3>'.esc_html($person['name']).'</h3>';
-        if(!empty($person['role']))$html.='<p>'.esc_html($person['role']).'</p>';
+        $html.='<h3>'.esc_html(bcst_text($person['name'])).'</h3>';
+        if(!empty($person['role']))$html.='<p>'.esc_html(bcst_text($person['role'])).'</p>';
         $html.=bcst_contact_links($person).'</article>';
     }
     foreach(array('email'=>'Company Email','phone'=>'Company Telephone','whatsapp'=>'WhatsApp','address'=>'Factory Address') as $key=>$label){
         if(empty($company[$key]))continue;
-        $html.='<article class="bcst-contact-card"><h3>'.esc_html(bcst_text($label)).'</h3>'.($key==='address'?'<p>'.nl2br(esc_html($company[$key])).'</p>':bcst_contact_links(array($key=>$company[$key]))).'</article>';
+        $html.='<article class="bcst-contact-card"><h3>'.esc_html(bcst_text($label)).'</h3>'.($key==='address'?'<p>'.nl2br(esc_html(bcst_text($company[$key]))).'</p>':bcst_contact_links(array($key=>$company[$key]))).'</article>';
     }
     return $html.'</div><p>'.bcst_inquiry_button().'</p></section>';
 }
