@@ -1,10 +1,11 @@
 <?php
 defined('ABSPATH') || exit;
 require_once __DIR__ . '/product-navigation.php';
+require_once __DIR__ . '/page-navigation.php';
 require_once __DIR__ . '/site-layout.php';
 function bcst_t($text){return function_exists('bcst_text')?bcst_text($text):$text;}
 function bcst_setting($key,$default=''){$s=get_option('bcst_settings',array());return !empty($s[$key])?$s[$key]:$default;}
-function bcst_page_url($slug){$p=get_page_by_path($slug);if(!$p)return home_url('/'.$slug.'/');$id=$p->ID;if(function_exists('pll_get_post'))$id=pll_get_post($id)?:$id;return get_permalink($id);}
+function bcst_page_url($slug){$p=bcst_nav_find_page($slug);$p=$p?bcst_nav_local_page($p->ID):null;return $p?bcst_nav_page_url($p->ID):bcst_home();}
 function bcst_home(){return function_exists('pll_home_url')?pll_home_url():home_url('/');}
 add_action('after_setup_theme',function(){add_theme_support('title-tag');add_theme_support('post-thumbnails');add_theme_support('custom-logo');add_theme_support('responsive-embeds');add_theme_support('html5',array('search-form','gallery','caption','style','script'));register_nav_menus(array('primary'=>'主导航'));});
 add_action('wp_enqueue_scripts',function(){wp_enqueue_style('bcst-industrial',get_stylesheet_uri(),array(),'1.0.0');wp_enqueue_script('bcst-site',get_template_directory_uri().'/site.js',array(),'1.0.0',true);});
