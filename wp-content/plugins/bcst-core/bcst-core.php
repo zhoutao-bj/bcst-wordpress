@@ -12,6 +12,7 @@ require_once __DIR__ . '/batch-translation.php';
 require_once __DIR__ . '/company-logo.php';
 require_once __DIR__ . '/page-display.php';
 require_once __DIR__ . '/contact-inquiry.php';
+require_once __DIR__ . '/frontend-translations.php';
 
 function bcst_register() {
     register_post_type('bcst_product', array('labels'=>array('name'=>'产品','singular_name'=>'产品','add_new_item'=>'添加产品'), 'public'=>true,'has_archive'=>'products','rewrite'=>array('slug'=>'product'),'show_in_rest'=>true,'menu_icon'=>'dashicons-products','supports'=>array('title','editor','excerpt','thumbnail','revisions','page-attributes')));
@@ -108,8 +109,8 @@ function bcst_submit(){
     $id=wp_insert_post(array('post_type'=>'bcst_inquiry','post_status'=>'private','post_title'=>wp_slash($name.' — '.current_time('mysql')),'post_content'=>wp_slash($body)),true);
     if(is_wp_error($id) || !$id)bcst_inquiry_error('Unable to save. Please try again later.',500);
     update_post_meta($id,'_bcst_status','new');
-    if(wp_doing_ajax())wp_send_json_success(array('message'=>bcst_text('Thank you. Your inquiry has been saved.')));
-    nocache_headers();wp_die(esc_html(bcst_text('Thank you. Your inquiry has been saved.')).'<p><a href="'.esc_url(home_url('/')).'">'.esc_html(bcst_text('Home')).'</a></p>',esc_html(bcst_text('Inquiry received')),array('response'=>200));
+    if(wp_doing_ajax())wp_send_json_success(array('message'=>bcst_inquiry_text('Thank you. Your inquiry has been saved.')));
+    nocache_headers();wp_die(esc_html(bcst_inquiry_text('Thank you. Your inquiry has been saved.')).'<p><a href="'.esc_url(home_url('/')).'">'.esc_html(bcst_text('Home')).'</a></p>',esc_html(bcst_inquiry_text('Inquiry received')),array('response'=>200));
 }
 add_action('admin_post_bcst_inquiry','bcst_submit');add_action('admin_post_nopriv_bcst_inquiry','bcst_submit');
 

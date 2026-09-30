@@ -28,6 +28,7 @@ function bcst_translation_center() {
     echo '<div class="wrap"><h1>多语言翻译中心</h1><p>先检查和配置翻译服务，再按内容类型进入管理页面。进入本页不会自动调用翻译接口，也没有整站一键翻译。</p>';
     bcst_bailian_status();
     bcst_bailian_page();
+    bcst_ui_coverage();
     echo '<h2>内容翻译入口</h2>';
     $entries = array(
         array('产品翻译','edit.php?post_type=bcst_product','已支持批量翻译。勾选产品，点击 Filter 旁的“翻译所选内容（先确认）”按钮。'),
@@ -36,7 +37,7 @@ function bcst_translation_center() {
         array('产品分类翻译','edit-tags.php?taxonomy=bcst_category&post_type=bcst_product','支持翻译所选或全部主语言产品分类，父级先处理。'),
         array('文章分类翻译','edit-tags.php?taxonomy=category','翻译所选或全部主语言文章分类的名称、描述，保留层级与语言关联。'),
         array('文章标签翻译','edit-tags.php?taxonomy=post_tag','翻译所选或全部主语言标签的名称、描述及语言关联。'),
-        array('前台公共文字翻译','admin.php?page=mlang_strings','Languages → Translations：使用独立翻译复选框勾选公共文字，再点击 Filter 旁的翻译按钮。'),
+        array('固定界面与公共文字翻译','admin.php?page=mlang_strings','Languages → Translations：使用独立翻译复选框勾选公共文字，再点击 Filter 旁的翻译按钮。'),
         array('媒体说明文字','upload.php?mode=list','切换媒体列表模式，勾选后翻译标题、说明、图注及图片 Alt，不处理图片或视频内部内容。'),
         array('工业站文案设置','options-general.php?page=bcst-settings','保存源文案后点击“翻译工业站文案”，翻译首页、页脚、地址、销售人员姓名和职位，不翻译邮箱或电话。'),
         array('语言管理','admin.php?page=mlang','新增或维护语言。批量任务的目标语言自动读取 Polylang 配置。'),

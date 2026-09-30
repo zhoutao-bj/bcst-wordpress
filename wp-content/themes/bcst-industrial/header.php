@@ -1,8 +1,8 @@
 <!doctype html><html <?php language_attributes(); ?>><head><meta charset="<?php bloginfo('charset'); ?>"><meta name="viewport" content="width=device-width, initial-scale=1"><?php wp_head(); ?></head>
-<body <?php body_class(); ?>><?php wp_body_open(); ?><a class="screen-reader-text" href="#main">Skip to content</a>
+<body <?php body_class(); ?>><?php wp_body_open(); ?><a class="screen-reader-text" href="#main"><?php echo esc_html(bcst_t('Skip to content')); ?></a>
 <header class="site-header bcst-fixed-header"><div class="wrap bcst-header-layout">
 <div class="bcst-header-logo"><?php bcst_layout_logo(); ?></div>
-<nav aria-label="Main navigation" class="bcst-header-nav"><?php bcst_layout_menu(bcst_layout_tree()); ?></nav>
+<nav aria-label="<?php echo esc_attr(bcst_t('Main navigation')); ?>" class="bcst-header-nav"><?php bcst_layout_menu(bcst_layout_tree()); ?></nav>
 <div class="bcst-header-tools">
 <form class="bcst-header-search" role="search" method="get" action="<?php echo esc_url(bcst_home()); ?>">
 <label class="screen-reader-text" for="bcst-header-query"><?php echo esc_html(bcst_t('Search')); ?></label>

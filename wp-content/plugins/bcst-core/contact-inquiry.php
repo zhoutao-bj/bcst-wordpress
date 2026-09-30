@@ -74,7 +74,7 @@ function bcst_contact_team(){
     foreach(($settings['people']??array()) as $person){
         if(empty($person['name']))continue;
         $html.='<article class="bcst-contact-card">';
-        if(!empty($person['photo']))$html.=wp_get_attachment_image($person['photo'],'thumbnail',false,array('class'=>'bcst-person-avatar','alt'=>$person['name']));
+        if(!empty($person['photo']))$html.=wp_get_attachment_image($person['photo'],'thumbnail',false,array('class'=>'bcst-person-avatar','alt'=>bcst_text($person['name'])));
         $html.='<h3>'.esc_html(bcst_text($person['name'])).'</h3>';
         if(!empty($person['role']))$html.='<p>'.esc_html(bcst_text($person['role'])).'</p>';
         $html.=bcst_contact_links($person).'</article>';
@@ -100,8 +100,8 @@ add_filter('the_content',function($content){
     return $content;
 },20);
 function bcst_inquiry_error($message,$status){
-    if(wp_doing_ajax())wp_send_json_error(array('message'=>bcst_text($message)),$status);
-    wp_die(esc_html(bcst_text($message)),'',array('response'=>$status));
+    if(wp_doing_ajax())wp_send_json_error(array('message'=>bcst_inquiry_text($message)),$status);
+    wp_die(esc_html(bcst_inquiry_text($message)),'',array('response'=>$status));
 }
 add_action('wp_ajax_bcst_inquiry','bcst_submit');
 add_action('wp_ajax_nopriv_bcst_inquiry','bcst_submit');
@@ -111,13 +111,13 @@ add_action('wp_ajax_nopriv_bcst_inquiry_token','bcst_inquiry_token');
 function bcst_inquiry_token(){nocache_headers();wp_send_json_success(array('nonce'=>wp_create_nonce('bcst_inquiry')));}
 add_action('wp_enqueue_scripts',function(){
     wp_enqueue_style('bcst-contact',plugins_url('contact-inquiry.css',__FILE__),array(),'1.0.0');
-    wp_enqueue_script('bcst-contact',plugins_url('contact-inquiry.js',__FILE__),array(),'1.0.0',true);
-    wp_localize_script('bcst-contact','bcstInquiry',array('url'=>admin_url('admin-ajax.php'),'sending'=>bcst_text('Sending…'),'error'=>bcst_text('Unable to submit. Please try again.')));
+    wp_enqueue_script('bcst-contact',plugins_url('contact-inquiry.js',__FILE__),array(),'1.1.0',true);
+    wp_localize_script('bcst-contact','bcstInquiry',array('url'=>admin_url('admin-ajax.php'),'sending'=>bcst_text('Sending…'),'error'=>bcst_text('Unable to submit. Please try again.'),'required'=>bcst_text('Please complete the required fields.'),'email'=>bcst_text('Please enter a valid email address.'),'consent'=>bcst_text('Please agree to be contacted about this inquiry.')));
 });
 add_action('wp_footer',function(){ ?>
 <dialog id="bcst-inquiry-dialog" aria-labelledby="bcst-inquiry-title">
 <button type="button" class="bcst-inquiry-close" aria-label="<?php echo esc_attr(bcst_text('Close')); ?>">×</button>
-<form id="bcst-modal-form" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" method="post">
+<form novalidate id="bcst-modal-form" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" method="post">
 <h2 id="bcst-inquiry-title"><?php echo esc_html(bcst_text('Request a quotation')); ?></h2>
 <input type="hidden" name="action" value="bcst_inquiry"><input type="hidden" name="bcst_nonce" value="">
 <input type="hidden" name="product" value="<?php echo is_singular('bcst_product')?absint(get_queried_object_id()):0; ?>">

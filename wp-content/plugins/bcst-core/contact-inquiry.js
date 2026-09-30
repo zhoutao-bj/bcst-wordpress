@@ -42,16 +42,20 @@
     });
     form.addEventListener('submit', async function (event) {
         event.preventDefault();
-        if (busy || !form.reportValidity()) return;
+        if (busy) return;
+        const required = ['name', 'email', 'message'].find(key => !form.elements[key].value.trim());
+        if (required) { status.textContent = bcstInquiry.required; form.elements[required].focus(); return; }
+        if (!form.elements.email.validity.valid) { status.textContent = bcstInquiry.email; form.elements.email.focus(); return; }
+        if (!form.elements.consent.checked) { status.textContent = bcstInquiry.consent; form.elements.consent.focus(); return; }
         busy = true; submit.disabled = true; status.textContent = bcstInquiry.sending;
         try {
             const response = await fetch(bcstInquiry.url, {method: 'POST', credentials: 'same-origin', body: new FormData(form)});
             const result = await response.json();
-            if (!response.ok || !result.success) throw new Error(result.data && result.data.message || bcstInquiry.error);
+            if (!response.ok || !result.success) throw Object.assign(new Error(result.data && result.data.message || bcstInquiry.error), {bcstResponse: true});
             status.textContent = result.data.message;
             ['name', 'email', 'message'].forEach(key => { form.elements[key].value = ''; });
             form.elements.consent.checked = false;
-        } catch (error) { status.textContent = error.message || bcstInquiry.error; }
+        } catch (error) { status.textContent = error.bcstResponse ? error.message : bcstInquiry.error; }
         finally { busy = false; submit.disabled = false; }
     });
 }());

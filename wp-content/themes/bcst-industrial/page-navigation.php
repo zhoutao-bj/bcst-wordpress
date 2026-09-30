@@ -102,6 +102,6 @@ function bcst_page_category_list($page_id) {
     wp_reset_postdata();
     if ($query->max_num_pages>1) {
         $base=str_replace('999999999','%#%',esc_url(add_query_arg('bcst_pg',999999999,get_permalink($page_id))));
-        echo '<nav class="pagination" aria-label="Pagination">'.wp_kses_post(paginate_links(array('base'=>$base,'format'=>'','current'=>$paged,'total'=>$query->max_num_pages,'prev_text'=>'←','next_text'=>'→','type'=>'list'))).'</nav>';
+        echo '<nav class="pagination" aria-label="'.esc_attr(bcst_t('Pagination')).'">'.wp_kses_post(paginate_links(array('base'=>$base,'format'=>'','current'=>$paged,'total'=>$query->max_num_pages,'prev_text'=>'←','next_text'=>'→','type'=>'list'))).'</nav>';
     }
 }
