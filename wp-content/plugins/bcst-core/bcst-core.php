@@ -11,6 +11,7 @@ require_once __DIR__ . '/bailian.php';
 require_once __DIR__ . '/batch-translation.php';
 require_once __DIR__ . '/company-logo.php';
 require_once __DIR__ . '/page-display.php';
+require_once __DIR__ . '/contact-inquiry.php';
 
 function bcst_register() {
     register_post_type('bcst_product', array('labels'=>array('name'=>'产品','singular_name'=>'产品','add_new_item'=>'添加产品'), 'public'=>true,'has_archive'=>'products','rewrite'=>array('slug'=>'product'),'show_in_rest'=>true,'menu_icon'=>'dashicons-products','supports'=>array('title','editor','excerpt','thumbnail','revisions','page-attributes')));
@@ -51,7 +52,7 @@ add_action('add_meta_boxes',function(){
     add_meta_box('bcst_lead_data','询盘详情 / 跟进',function($post){
         echo '<pre style="white-space:pre-wrap">'.esc_html($post->post_content).'</pre>';
         wp_nonce_field('bcst_lead_save','bcst_lead_nonce');
-        echo '<p>邮件通知：'.esc_html(get_post_meta($post->ID,'_bcst_mail',true)).'</p><label>跟进状态 <select name="bcst_status">';
+        echo '<label>跟进状态 <select name="bcst_status">';
         foreach(array('new'=>'待处理','contacted'=>'已联系','quoted'=>'已报价','closed'=>'已关闭') as $key=>$label) echo '<option value="'.esc_attr($key).'" '.selected(get_post_meta($post->ID,'_bcst_status',true),$key,false).'>'.esc_html($label).'</option>';
         echo '</select></label><p>跟进备注<textarea name="bcst_notes" rows="5" style="width:100%">'.esc_textarea(get_post_meta($post->ID,'_bcst_notes',true)).'</textarea></p>';
     },'bcst_inquiry');
@@ -78,10 +79,11 @@ add_action('admin_init',function(){register_setting('bcst_settings','bcst_settin
 }));});
 function bcst_settings_page(){
     if(!current_user_can('manage_options'))return;
-    echo '<div class="wrap"><h1>工业站设置</h1><p>询盘同时保存在后台。邮件投递需配置 SMTP 并实际测试。WhatsApp 填国家码加号码，仅数字。</p><form method="post" action="options.php">';settings_fields('bcst_settings');$values=get_option('bcst_settings',array());
+    echo '<div class="wrap"><h1>工业站设置</h1><p>询盘仅保存在后台，不发送邮件通知。请定期查看“询盘”列表。WhatsApp 填国家码加号码，仅数字。</p><form method="post" action="options.php">';settings_fields('bcst_settings');$values=get_option('bcst_settings',array());
     bcst_company_logo_control();
     bcst_navigation_root_control();
-    foreach(array('email'=>'销售收件邮箱','phone'=>'联系电话','whatsapp'=>'WhatsApp','address'=>'公司地址','headline'=>'首页标题','intro'=>'首页介绍','footer_intro'=>'页脚公司简介（留空时使用首页介绍）','facebook'=>'Facebook 链接','tiktok'=>'TikTok 链接') as $key=>$label)echo '<p><label>'.esc_html($label).'<br><textarea class="large-text" name="bcst_settings['.esc_attr($key).']">'.esc_textarea($values[$key]??'').'</textarea></label></p>';
+    bcst_contact_control();
+    foreach(array('email'=>'公司联系邮箱（仅前台展示）','phone'=>'联系电话','whatsapp'=>'WhatsApp','address'=>'公司地址','headline'=>'首页标题','intro'=>'首页介绍','footer_intro'=>'页脚公司简介（留空时使用首页介绍）','facebook'=>'Facebook 链接','tiktok'=>'TikTok 链接') as $key=>$label)echo '<p><label>'.esc_html($label).'<br><textarea class="large-text" name="bcst_settings['.esc_attr($key).']">'.esc_textarea($values[$key]??'').'</textarea></label></p>';
     submit_button();echo '</form><hr><p><a class="button" href="'.esc_url(wp_nonce_url(admin_url('admin-post.php?action=bcst_export'),'bcst_export')).'">导出最近 1000 条询盘 CSV</a></p></div>';
 }
 add_action('admin_post_bcst_setup',function(){
@@ -92,40 +94,21 @@ add_action('admin_post_bcst_setup',function(){
 
 function bcst_text($text){return function_exists('pll__')?pll__($text):$text;}
 function bcst_input($key){return isset($_POST[$key])&&is_string($_POST[$key])?trim(wp_unslash($_POST[$key])):'';}
-add_shortcode('bcst_inquiry',function(){
-    $product=is_singular('bcst_product')?get_the_ID():0;
-    ob_start(); ?>
-    <form class="inquiry" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" method="post">
-    <h2><?php echo esc_html(bcst_text('Request a quotation')); ?></h2>
-    <?php wp_nonce_field('bcst_inquiry','bcst_nonce'); ?>
-    <input type="hidden" name="action" value="bcst_inquiry"><input type="hidden" name="product" value="<?php echo esc_attr($product); ?>">
-    <input type="hidden" name="source" value="<?php echo esc_url(get_permalink()); ?>">
-    <input type="hidden" name="language" value="<?php echo esc_attr(function_exists('pll_current_language')?pll_current_language():get_locale()); ?>">
-    <input type="hidden" name="campaign" value="" class="bcst-campaign">
-    <div class="bcst-trap" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off"></label></div>
-    <?php foreach(array('name'=>'Name','email'=>'Email','company'=>'Company','country'=>'Country','phone'=>'Phone / WhatsApp') as $key=>$label): ?>
-    <label><?php echo esc_html(bcst_text($label)); ?><input name="<?php echo esc_attr($key); ?>" type="<?php echo $key==='email'?'email':'text'; ?>" maxlength="200" <?php echo in_array($key,array('name','email','country'),true)?'required':''; ?>></label>
-    <?php endforeach; ?>
-    <label><?php echo esc_html(bcst_text('Requirements')); ?><textarea name="message" rows="5" maxlength="5000" required></textarea></label>
-    <label><input type="checkbox" name="consent" value="1" required> <?php echo esc_html(bcst_text('I agree to be contacted about this inquiry.')); ?> <?php if(get_privacy_policy_url()): ?><a href="<?php echo esc_url(get_privacy_policy_url()); ?>"><?php echo esc_html(bcst_text('Privacy policy')); ?></a><?php endif; ?></label>
-    <button type="submit"><?php echo esc_html(bcst_text('Send inquiry')); ?></button></form>
-    <?php return ob_get_clean();
-});
 function bcst_submit(){
-    if(!wp_verify_nonce(bcst_input('bcst_nonce'),'bcst_inquiry'))wp_die('Form expired. Please refresh the page and try again.',400);
-    if(bcst_input('website')!=='')wp_die('Unable to submit.',400);
+    if(!wp_verify_nonce(bcst_input('bcst_nonce'),'bcst_inquiry'))bcst_inquiry_error('Form expired. Please refresh the page and try again.',400);
+    if(bcst_input('website')!=='')bcst_inquiry_error('Unable to submit.',400);
     $email=sanitize_email(bcst_input('email'));$name=sanitize_text_field(bcst_input('name'));$message=sanitize_textarea_field(bcst_input('message'));$country=sanitize_text_field(bcst_input('country'));
-    if(!$name || !is_email($email) || !$message || !$country || bcst_input('consent')!=='1' || strlen($message)>20000 || strlen($name)>600 || strlen($country)>600)wp_die('Please complete the required fields.',400);
+    if(!$name || !is_email($email) || !$message || bcst_input('consent')!=='1' || strlen($message)>20000 || strlen($name)>600 || strlen($country)>600)bcst_inquiry_error('Please complete the required fields.',400);
     $key='bcst_rate_'.hash_hmac('sha256',$_SERVER['REMOTE_ADDR']??'',wp_salt());$count=(int)get_transient($key);
-    if($count>=5)wp_die('Too many submissions. Please try again in ten minutes.',429);
+    if($count>=5)bcst_inquiry_error('Too many submissions. Please try again in ten minutes.',429);
     set_transient($key,$count+1,10*MINUTE_IN_SECONDS);
     $product=absint(bcst_input('product'));if(get_post_type($product)!=='bcst_product'||get_post_status($product)!=='publish')$product=0;
     $data=array('Name'=>$name,'Email'=>$email,'Company'=>sanitize_text_field(substr(bcst_input('company'),0,600)),'Country'=>$country,'Phone'=>sanitize_text_field(substr(bcst_input('phone'),0,200)),'Product'=>$product?get_the_title($product):'General inquiry','Source'=>esc_url_raw(substr(bcst_input('source'),0,2000)),'Language'=>sanitize_text_field(substr(bcst_input('language'),0,30)),'Campaign'=>sanitize_text_field(substr(bcst_input('campaign'),0,2000)),'Consent'=>'Yes','Requirements'=>$message);
     $body='';foreach($data as $label=>$value)$body.=$label.': '.$value."\n\n";
     $id=wp_insert_post(array('post_type'=>'bcst_inquiry','post_status'=>'private','post_title'=>wp_slash($name.' — '.current_time('mysql')),'post_content'=>wp_slash($body)),true);
-    if(is_wp_error($id))wp_die('Unable to save. Please try again later.',500);
-    update_post_meta($id,'_bcst_status','new');$settings=get_option('bcst_settings',array());$to=$settings['email']??get_option('admin_email');
-    $sent=wp_mail($to,'New website inquiry #'.$id,$body,array('Reply-To: '.$email));update_post_meta($id,'_bcst_mail',$sent?'Mail accepted by transport (delivery unconfirmed)':'Failed — check SMTP');
+    if(is_wp_error($id) || !$id)bcst_inquiry_error('Unable to save. Please try again later.',500);
+    update_post_meta($id,'_bcst_status','new');
+    if(wp_doing_ajax())wp_send_json_success(array('message'=>bcst_text('Thank you. Your inquiry has been saved.')));
     nocache_headers();wp_die(esc_html(bcst_text('Thank you. Your inquiry has been saved.')).'<p><a href="'.esc_url(home_url('/')).'">'.esc_html(bcst_text('Home')).'</a></p>',esc_html(bcst_text('Inquiry received')),array('response'=>200));
 }
 add_action('admin_post_bcst_inquiry','bcst_submit');add_action('admin_post_nopriv_bcst_inquiry','bcst_submit');
@@ -133,9 +116,9 @@ add_action('admin_post_bcst_inquiry','bcst_submit');add_action('admin_post_nopri
 add_action('admin_post_bcst_export',function(){
     if(!current_user_can('manage_options'))wp_die('Forbidden',403);check_admin_referer('bcst_export');
     nocache_headers();header('Content-Type: text/csv; charset=utf-8');header('Content-Disposition: attachment; filename="inquiries.csv"');
-    $out=fopen('php://output','w');fwrite($out,"\xEF\xBB\xBF");fputcsv($out,array('ID','日期','客户','状态','详情','备注','邮件'));
+    $out=fopen('php://output','w');fwrite($out,"\xEF\xBB\xBF");fputcsv($out,array('ID','日期','客户','状态','详情','备注'));
     $posts=get_posts(array('post_type'=>'bcst_inquiry','post_status'=>'private','posts_per_page'=>1000,'suppress_filters'=>true));
-    foreach($posts as $p){$row=array($p->ID,$p->post_date,$p->post_title,get_post_meta($p->ID,'_bcst_status',true),$p->post_content,get_post_meta($p->ID,'_bcst_notes',true),get_post_meta($p->ID,'_bcst_mail',true));foreach($row as &$cell){$cell=(string)$cell;if(preg_match('/^[\s]*[=+@-]/u',$cell))$cell="'".$cell;}unset($cell);fputcsv($out,$row);}fclose($out);exit;
+    foreach($posts as $p){$row=array($p->ID,$p->post_date,$p->post_title,get_post_meta($p->ID,'_bcst_status',true),$p->post_content,get_post_meta($p->ID,'_bcst_notes',true));foreach($row as &$cell){$cell=(string)$cell;if(preg_match('/^[\s]*[=+@-]/u',$cell))$cell="'".$cell;}unset($cell);fputcsv($out,$row);}fclose($out);exit;
 });
-add_filter('manage_bcst_inquiry_posts_columns',function($columns){$columns['bcst_status']='跟进状态';$columns['bcst_mail']='邮件通知';return $columns;});
-add_action('manage_bcst_inquiry_posts_custom_column',function($column,$id){if($column==='bcst_status')echo esc_html(get_post_meta($id,'_bcst_status',true));if($column==='bcst_mail')echo esc_html(get_post_meta($id,'_bcst_mail',true));},10,2);
+add_filter('manage_bcst_inquiry_posts_columns',function($columns){$columns['bcst_status']='跟进状态';return $columns;});
+add_action('manage_bcst_inquiry_posts_custom_column',function($column,$id){if($column==='bcst_status')echo esc_html(get_post_meta($id,'_bcst_status',true));},10,2);
