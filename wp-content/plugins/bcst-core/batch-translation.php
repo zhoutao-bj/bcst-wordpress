@@ -4,7 +4,7 @@ defined('ABSPATH') || exit;
 
 function bcst_bt_preflight() {
     $raw = get_option('bcst_bailian', array());
-    if (empty($raw['model']) || !in_array($raw['model'], bcst_bailian_models(), true)) throw new Exception('尚未配置有效翻译模型，请先前往百炼翻译设置。');
+    if (empty($raw['model']) || !in_array($raw['model'], bcst_bailian_models(), true)) throw new Exception('尚未配置有效翻译模型，请先前往多语言翻译中心配置翻译服务。');
     bcst_bailian_key($raw);
     bcst_bailian_endpoint(bcst_bailian_config());
     foreach (array('pll_get_post_language','pll_get_term_language','pll_get_post_translations','pll_get_term_translations','pll_set_post_language','pll_set_term_language','pll_save_post_translations','pll_save_term_translations','pll_languages_list','pll_is_translated_post_type','pll_is_translated_taxonomy') as $fn) {
@@ -14,14 +14,14 @@ function bcst_bt_preflight() {
     if (count(bcst_bailian_languages()) < 2) throw new Exception('请先在 Polylang 添加至少两种语言。');
 }
 function bcst_bt_key() { return 'bcst_bt_job_' . get_current_user_id(); }
-function bcst_bt_url() { return admin_url('tools.php?page=bcst-batch-translation'); }
+function bcst_bt_url() { return admin_url('tools.php?page=bcst-batch-translation&view=task'); }
 function bcst_bt_error($message) {
     set_transient('bcst_bt_notice_' . get_current_user_id(), $message, 300);
     return bcst_bt_url();
 }
 foreach (array('post','bcst_product') as $bt_type) {
     add_filter('bulk_actions-edit-' . $bt_type, function ($actions) {
-        if (current_user_can('manage_options')) $actions['bcst_translate'] = '百炼翻译所选内容（先确认）';
+        if (current_user_can('manage_options')) $actions['bcst_translate'] = '翻译所选内容（先确认）';
         return $actions;
     });
     add_filter('handle_bulk_actions-edit-' . $bt_type, function ($redirect, $action, $ids) {
@@ -43,17 +43,42 @@ foreach (array('post','bcst_product') as $bt_type) {
     },10,3);
 }
 add_action('bcst_category_pre_add_form', function () {
-    if (current_user_can('manage_options')) echo '<p><a class="button" href="' . esc_url(bcst_bt_url()) . '">百炼：翻译全部产品分类</a></p>';
+    if (current_user_can('manage_options')) echo '<p><a class="button" href="' . esc_url(bcst_bt_url()) . '">翻译全部产品分类</a></p>';
 });
-add_action('admin_menu',function () { add_management_page('百炼批量翻译','百炼批量翻译','manage_options','bcst-batch-translation','bcst_bt_page'); });
+add_action('admin_menu',function () { add_management_page('多语言翻译中心','多语言翻译中心','manage_options','bcst-batch-translation','bcst_translation_center'); });
+function bcst_translation_center() {
+    if (!current_user_can('manage_options')) return;
+    if (isset($_GET['view']) && $_GET['view'] === 'task') { bcst_bt_page(); return; }
+    echo '<div class="wrap"><h1>多语言翻译中心</h1><p>先检查和配置翻译服务，再按内容类型进入管理页面。进入本页不会自动调用翻译接口，也没有整站一键翻译。</p>';
+    bcst_bailian_status();
+    bcst_bailian_page();
+    echo '<h2>内容翻译入口</h2>';
+    $entries = array(
+        array('产品翻译','edit.php?post_type=bcst_product','已支持批量翻译。勾选产品，选择“翻译所选内容（先确认）”。'),
+        array('文章翻译 / All Posts','edit.php','已支持批量翻译。勾选文章，选择“翻译所选内容（先确认）”。'),
+        array('页面翻译 / Pages','edit.php?post_type=page','维护 About、Contact Us 等页面的语言版本。批量翻译接入待完成，目前使用语言列的加号或铅笔维护。'),
+        array('产品分类翻译','edit-tags.php?taxonomy=bcst_category&post_type=bcst_product','已支持全部产品分类翻译，父级先处理；可从分类页面的翻译按钮进入任务。'),
+        array('文章分类翻译','edit-tags.php?taxonomy=category','维护文章分类名称、描述和语言关联。批量翻译接入待完成。'),
+        array('文章标签翻译','edit-tags.php?taxonomy=post_tag','维护标签名称、描述和语言关联。批量翻译接入待完成。'),
+        array('前台公共文字翻译','admin.php?page=mlang_strings','Languages → Translations：按钮、表单提示等公共文案。目前手动填写译文，批量翻译接入待完成。'),
+        array('媒体说明文字','upload.php','维护媒体标题、说明及图片 Alt；不翻译图片或视频内部内容。批量翻译接入待完成。'),
+        array('工业站文案设置','options-general.php?page=bcst-settings','维护首页介绍、页脚简介和销售资料等源文案；已注册的多语言文案在“前台公共文字翻译”中维护。'),
+        array('语言管理','admin.php?page=mlang','新增或维护语言。批量任务的目标语言自动读取 Polylang 配置。'),
+    );
+    echo '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;max-width:1200px;margin-top:20px">';
+    foreach ($entries as $entry) {
+        echo '<section style="background:#fff;border:1px solid #c3c4c7;border-radius:6px;padding:20px"><h2 style="margin-top:0"><a href="' . esc_url(admin_url($entry[1])) . '">' . esc_html($entry[0]) . '</a></h2><p>' . esc_html($entry[2]) . '</p><a class="button" href="' . esc_url(admin_url($entry[1])) . '">进入管理</a></section>';
+    }
+    echo '</div><h2>翻译任务</h2><p>查看所选内容、创建分类任务，或继续本人尚未完成的任务。已有译文（含草稿）跳过，新产品和文章译文保存为草稿；分类保存后立即生效。</p><p><a class="button" href="' . esc_url(bcst_bt_url()) . '">进入任务确认 / 查看进度</a></p></div>';
+}
 function bcst_bt_page() {
     if (!current_user_can('manage_options')) return;
-    echo '<div class="wrap"><h1>百炼批量翻译</h1><p><a href="' . esc_url(admin_url('options-general.php?page=bcst-bailian')) . '">前往百炼翻译设置（API Key / 模型 / 地域）</a></p>';
+    echo '<div class="wrap"><h1>多语言翻译中心 — 批量任务</h1><p><a href="' . esc_url(admin_url('tools.php?page=bcst-batch-translation')) . '">返回多语言翻译中心</a> | <a href="' . esc_url(bcst_bailian_settings_url()) . '">配置翻译服务（API Key / 模型 / 地域）</a></p>';
     $notice = get_transient('bcst_bt_notice_' . get_current_user_id());
     if ($notice) { echo '<div class="notice notice-warning inline"><p>' . esc_html($notice) . '</p></div>'; delete_transient('bcst_bt_notice_' . get_current_user_id()); }
     try { bcst_bt_preflight(); } catch (Throwable $e) { echo '<p>' . esc_html($e->getMessage()) . '</p></div>'; return; }
     $ids = get_transient('bcst_bt_selection_' . get_current_user_id()) ?: array();
-    echo '<p>目标语言自动读取 Polylang 已配置语言（含尚无内容的语言），当前模型是否支持需实测。已有译文（包括草稿）跳过，不覆盖；新产品和文章保存草稿。分类立即可见，请先备份数据库。</p><p>产品/文章翻译包括标题、正文、摘要，产品参数及 FAQ；型号、图片、资料链接保持原值。HTML 标签、区块注释、短代码和 URL 保留；图片内文字及区块属性不翻译。源文变更会停止该条任务。</p><p>已从列表选择 ' . count($ids) . ' 篇。请从产品/文章列表勾选并使用“百炼翻译所选内容”。</p>';
+    echo '<p>点击列表中的 Apply 仅进入确认页，不会立即翻译。源语言按所选内容自身的语言识别；目标语言由下方复选框决定，与后台顶部语言筛选无关。目标语言自动读取 Polylang 已配置语言（含尚无内容的语言），当前模型是否支持需实测。已有译文（包括草稿）跳过，不覆盖；新产品和文章保存草稿。分类立即可见，请先备份数据库。</p><p>产品/文章翻译包括标题、正文、摘要，产品参数及 FAQ；型号、图片、资料链接保持原值。HTML 标签、区块注释、短代码和 URL 保留；图片内文字及区块属性不翻译。源文变更会停止该条任务。</p><p>已从列表选择 ' . count($ids) . ' 篇。请从产品/文章列表勾选并使用“翻译所选内容”。</p>';
     echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '"><input type="hidden" name="action" value="bcst_bt_create">'; wp_nonce_field('bcst_bt_create');
     echo '<p><label>范围 <select name="scope"><option value="selected">所选产品 / 文章（自动补齐所属产品分类译文）</option><option value="categories">全部产品分类（无需勾选，父级先处理）</option></select></label></p><p>目标语言：';
     foreach (bcst_bailian_languages() as $code=>$language) echo '<label style="margin-right:20px"><input type="checkbox" name="targets[]" value="' . esc_attr($code) . '">' . esc_html($language['name'] . ' (' . $code . ')') . '</label>';

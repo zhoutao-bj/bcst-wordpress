@@ -80,13 +80,37 @@ function bcst_bailian_translate($text, $source, $target) {
     return array('text'=>$choice['message']['content'],'tokens'=>absint($data['usage']['total_tokens'] ?? 0));
 }
 
-add_action('admin_menu', function () {
-    add_options_page('百炼翻译设置','百炼翻译设置','manage_options','bcst-bailian','bcst_bailian_page');
+function bcst_bailian_settings_url() {
+    return admin_url('tools.php?page=bcst-batch-translation#bcst-bailian-settings');
+}
+// Retain old bookmarks without keeping a second Settings menu entry.
+add_action('admin_init', function () {
+    if (isset($_GET['page']) && $_GET['page'] === 'bcst-bailian' && current_user_can('manage_options')) {
+        wp_safe_redirect(bcst_bailian_settings_url()); exit;
+    }
 });
+function bcst_bailian_status() {
+    $raw = get_option('bcst_bailian', array());
+    $raw = is_array($raw) ? $raw : array();
+    $checks = array();
+    $checks['翻译模型'] = !empty($raw['model']) && in_array($raw['model'], bcst_bailian_models(), true) ? '已配置：' . $raw['model'] : '未保存或模型无效';
+    $model_ok = !empty($raw['model']) && in_array($raw['model'], bcst_bailian_models(), true);
+    $key_ok = false; $host_ok = false;
+    try { bcst_bailian_key($raw); $key_ok = true; $checks['API Key'] = '已保存，可解密（不显示密钥）'; }
+    catch (Throwable $e) { $checks['API Key'] = $e->getMessage(); }
+    try { bcst_bailian_endpoint(bcst_bailian_config()); $host_ok = true; $checks['地域 / 业务空间'] = '格式检查通过'; }
+    catch (Throwable $e) { $checks['地域 / 业务空间'] = $e->getMessage(); }
+    $ready = $model_ok && $key_ok && $host_ok;
+    echo '<div class="notice notice-' . ($ready ? 'success' : 'warning') . ' inline"><p><strong>' . ($ready ? '百炼基础配置检查通过' : '百炼配置未完成或无效，请先完善下方设置') . '</strong></p><ul>';
+    foreach ($checks as $label=>$message) echo '<li>' . esc_html($label . '：' . $message) . '</li>';
+    echo '</ul><p>这里只检查本地配置，不发送文字、不调用付费接口。配置通过不代表密钥权限、额度、网络或目标语言已验证；请使用下方“测试翻译”确认。</p></div>';
+    try { bcst_bt_preflight(); }
+    catch (Throwable $e) { if ($ready) echo '<div class="notice notice-warning inline"><p>批量翻译暂不可用：' . esc_html($e->getMessage()) . '</p></div>'; }
+}
 function bcst_bailian_page() {
     if (!current_user_can('manage_options')) return;
     $config = bcst_bailian_config();
-    echo '<div class="wrap"><h1>阿里云百炼翻译设置</h1><p>配置仅供服务器调用，不在前台输出密钥。保存后可在产品/文章列表勾选内容，通过批量操作进入翻译任务。</p><div class="notice notice-warning inline"><p>蒙古语已开放调用，使用当前模型并要求西里尔蒙古文；官方未列出支持保证，请先测试。接口拒绝时显示失败，不自动换模型。译文须人工审核。</p></div>';
+    echo '<section id="bcst-bailian-settings" style="background:#fff;border:1px solid #c3c4c7;padding:20px;margin:20px 0;max-width:1160px"><h2>百炼翻译配置</h2><p>配置仅供服务器调用，不在前台输出密钥。原设置已保留，无需重复填写；保存后可从下方各类内容入口进入翻译任务。</p><div class="notice notice-warning inline"><p>蒙古语已开放调用，使用当前模型并要求西里尔蒙古文；官方未列出支持保证，请先测试。接口拒绝时显示失败，不自动换模型。译文须人工审核。</p></div>';
     $notice = get_transient('bcst_bailian_notice_' . get_current_user_id());
     if ($notice) { echo '<div class="notice notice-info inline"><p>' . esc_html($notice) . '</p></div>'; delete_transient('bcst_bailian_notice_' . get_current_user_id()); }
     echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '"><input type="hidden" name="action" value="bcst_bailian_save">';
@@ -105,11 +129,11 @@ function bcst_bailian_page() {
         echo '</select></label></p>';
     }
     echo '<p>选项自动读取 Polylang；请选择与测试文字一致的源语言。</p><textarea name="text" rows="5" class="large-text" required maxlength="1500">Pneumatic Control Valve. Model: BCST-100. Please confirm the operating pressure and temperature before quotation.</textarea><p><label><input type="checkbox" name="consent" value="1" required>同意发送此测试文本到阿里云并承担可能的接口费用</label></p>';
-    submit_button('发送测试（可能计费）','secondary'); echo '</form></div>';
+    submit_button('发送测试（可能计费）','secondary'); echo '</form></section>';
 }
 function bcst_bailian_finish($message) {
     set_transient('bcst_bailian_notice_' . get_current_user_id(), $message, 300);
-    wp_safe_redirect(admin_url('options-general.php?page=bcst-bailian')); exit;
+    wp_safe_redirect(bcst_bailian_settings_url()); exit;
 }
 function bcst_bailian_input($name) {
     return isset($_POST[$name]) && is_string($_POST[$name]) ? trim(wp_unslash($_POST[$name])) : '';
