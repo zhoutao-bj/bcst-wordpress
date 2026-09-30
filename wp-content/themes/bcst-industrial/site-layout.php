@@ -1,11 +1,15 @@
 <?php
 defined('ABSPATH') || exit;
 add_action('wp_enqueue_scripts',function () {
-    wp_enqueue_style('bcst-layout',get_template_directory_uri() . '/site-layout.css',array('bcst-industrial','bcst-product-navigation'),'2.1.0');
+    wp_enqueue_style('bcst-layout',get_template_directory_uri() . '/site-layout.css',array('bcst-industrial','bcst-product-navigation'),'2.2.0');
     wp_enqueue_script('bcst-layout',get_template_directory_uri() . '/site-layout.js',array(),'2.0.0',true);
 });
 add_action('admin_init',function () {
-    if (function_exists('pll_register_string')) foreach (array('About','News','Company Logo','Language','Open navigation') as $text) pll_register_string($text,$text,'BCST');
+    if (function_exists('pll_register_string')) {
+        foreach (array('About','News','Company Logo','Language','Open navigation','Follow us','All Rights Reserved.') as $text) pll_register_string($text,$text,'BCST');
+        $settings=get_option('bcst_settings',array());
+        if (!empty($settings['footer_intro'])) pll_register_string('bcst_footer_intro',$settings['footer_intro'],'BCST',true);
+    }
 });
 function bcst_layout_logo() {
     $logo_id=absint(get_option('bcst_company_logo',0));

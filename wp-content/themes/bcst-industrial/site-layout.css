@@ -9,9 +9,11 @@
 .bcst-main-menu>li{display:flex;align-items:center;flex-wrap:wrap;max-width:100%}
 .bcst-main-menu>li>a,.bcst-main-menu>li>span{padding:8px 0;font-size:14px;font-weight:700;overflow-wrap:anywhere}
 .bcst-header-tools{display:flex;align-items:center;gap:18px;margin-left:auto}
-.bcst-header-language{position:relative;border:0;padding:0;flex-shrink:0;font-size:13px;color:#132f3b}
+.bcst-header-language{position:relative;border:0;padding:0;flex-shrink:0;margin-left:auto;font-size:13px;color:#17685e}
 .bcst-header-language summary{list-style:none;cursor:pointer;padding:10px 0;font-weight:600;white-space:nowrap}
 .bcst-header-language summary::-webkit-details-marker{display:none}
+.bcst-header-language summary:hover,.bcst-header-language summary:focus-visible{color:#0d493f}
+.bcst-header-language summary:focus-visible{outline:2px solid #17685e;outline-offset:3px;border-radius:3px}
 .bcst-language-list{list-style:none;padding:0;margin:0}
 .bcst-header-language .bcst-language-list{position:absolute;right:0;top:100%;min-width:165px;max-width:calc(100vw - 32px);max-height:65vh;overflow:auto;background:white;box-shadow:0 8px 28px #132f3b26;border:1px solid #d9e0dc;padding:6px 0;z-index:220}
 .bcst-header-language a{display:block;padding:9px 15px;text-decoration:none}
@@ -29,9 +31,38 @@
 .bcst-social-float{position:fixed;right:22px;bottom:calc(22px + env(safe-area-inset-bottom,0px));z-index:150;display:flex;flex-direction:column;align-items:stretch;gap:8px;max-height:70vh;overflow:auto;padding:4px}
 .bcst-social-button{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--green);color:#fff;padding:12px 20px;border-radius:30px;text-decoration:none;box-shadow:0 4px 18px #0003;font-weight:600}
 .bcst-social-button:hover{background:#183e3b}.bcst-social-button:focus-visible{outline:3px solid #e8a63d;outline-offset:1px}
-.bcst-footer-contact{padding-right:180px}
-@media(max-width:600px){.bcst-social-float{right:8px;bottom:calc(8px + env(safe-area-inset-bottom,0px));gap:6px}.bcst-social-button{padding:10px 14px;font-size:13px;min-height:44px}.bcst-footer-contact{padding-right:135px}}
+@media(max-width:600px){.bcst-social-float{right:8px;bottom:calc(8px + env(safe-area-inset-bottom,0px));gap:6px}.bcst-social-button{padding:10px 14px;font-size:13px;min-height:44px}}
 @media(max-width:1050px){.bcst-header-layout{gap:12px 20px}.bcst-header-nav{flex-basis:400px}.bcst-main-menu{justify-content:flex-start}}
 @media(max-width:850px){.bcst-main-menu{margin-top:0}.bcst-main-menu>.bcst-product-nav{width:auto}.bcst-main-menu>.bcst-product-nav.bcst-open{width:100%}.bcst-main-menu .bcst-category-menu{flex-basis:100%}.bcst-header-nav{order:3;flex-basis:100%}.bcst-header-tools{gap:12px}.bcst-header-search{width:150px}}
 @media(max-width:782px){.admin-bar .bcst-fixed-header{top:46px}}
 @media(max-width:600px){.admin-bar .bcst-fixed-header{top:0}.bcst-fixed-header{padding:12px 0}.bcst-header-layout{width:calc(100% - 28px)}.bcst-header-logo .custom-logo{max-width:140px;max-height:52px}.bcst-logo-placeholder{width:140px;min-height:48px}.bcst-header-tools{flex-wrap:wrap}.bcst-header-search{width:145px}.bcst-header-nav{max-height:45vh;overflow:auto}.bcst-main-menu{gap:4px 14px!important}.bcst-footer-map{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* Reference-style footer layout; retain the site's existing footer background. */
+.bcst-reference-footer{padding:70px 0 20px}
+.bcst-footer-wrap{width:min(1420px,calc(100% - 80px))}
+.bcst-footer-columns{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr) minmax(0,1fr);gap:clamp(32px,6vw,110px);align-items:start}
+.bcst-footer-brand{max-width:480px}.bcst-reference-footer .bcst-footer-logo{margin-bottom:22px}
+.bcst-reference-footer .bcst-footer-logo .custom-logo{max-width:210px;max-height:86px;width:auto;height:auto}
+.bcst-reference-footer .bcst-footer-logo a{margin:0}
+.bcst-footer-intro{font-size:16px;line-height:1.6;margin:0;white-space:normal;overflow-wrap:anywhere}
+.bcst-footer-follow{margin-top:40px}
+.bcst-reference-footer h2{font-size:16px;font-weight:500;line-height:1.5;letter-spacing:0;margin:0 0 22px;text-transform:uppercase;color:#fff}
+.bcst-reference-footer .bcst-footer-follow h2{text-transform:none;font-weight:600;margin-bottom:12px}
+.bcst-footer-socials{display:flex;gap:14px;flex-wrap:wrap}
+.bcst-reference-footer .bcst-footer-socials a{display:flex;align-items:center;justify-content:center;width:38px;height:38px;border:1px solid #dce6e9;border-radius:50%;margin:0;font-size:13px;font-weight:700;color:#fff}
+.bcst-reference-footer a{text-decoration:none}
+.bcst-reference-footer a:hover{color:#fff;text-decoration:underline;text-underline-offset:4px}
+.bcst-reference-footer a:focus-visible{outline:2px solid #fff;outline-offset:4px}
+.bcst-reference-footer .bcst-footer-map{display:block;padding:0;margin:0;list-style:none}
+.bcst-reference-footer .bcst-footer-map>li>a,.bcst-reference-footer .bcst-footer-map>li>span{font-size:14px;font-weight:400}
+.bcst-reference-footer .bcst-footer-map a{color:#b6c6cc;margin:0 0 16px;line-height:1.5;overflow-wrap:anywhere}
+.bcst-reference-footer .bcst-footer-map a:hover{color:#fff}
+.bcst-reference-footer .bcst-footer-children{border:0;padding-left:16px;margin:0 0 16px}
+.bcst-reference-footer .bcst-footer-children a{font-size:13px;margin-bottom:10px}
+.bcst-footer-information{display:grid;gap:40px;min-width:0}
+.bcst-reference-footer h2 a{margin:0}
+.bcst-footer-contact p,.bcst-footer-contact>a{font-size:14px;line-height:1.6;margin:0 0 6px;overflow-wrap:anywhere}
+.bcst-reference-footer .bcst-footer-contact>a{color:#b6c6cc}
+.bcst-reference-footer .bcst-footer-bottom{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-top:70px;padding-top:20px;font-size:13px;color:#b6c6cc}
+.bcst-footer-bottom p{margin:0;text-align:right}.bcst-footer-bottom a{margin:0}
+@media(max-width:900px){.bcst-footer-wrap{width:calc(100% - 48px)}.bcst-footer-columns{grid-template-columns:repeat(2,minmax(0,1fr));gap:40px}.bcst-footer-brand{grid-column:1/-1;max-width:600px}.bcst-reference-footer .bcst-footer-bottom{margin-top:45px}}
+@media(max-width:520px){.bcst-reference-footer{padding:42px 0 130px}.bcst-footer-wrap{width:calc(100% - 36px)}.bcst-footer-columns{grid-template-columns:1fr;gap:32px}.bcst-footer-follow{margin-top:24px}.bcst-footer-information{gap:32px}.bcst-reference-footer .bcst-footer-bottom{display:block}.bcst-footer-bottom p{text-align:left;margin-top:12px}}

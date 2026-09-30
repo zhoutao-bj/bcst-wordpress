@@ -74,29 +74,20 @@ add_action('save_post',function($id){
 
 add_action('admin_menu',function(){add_options_page('工业站设置','工业站设置','manage_options','bcst-settings','bcst_settings_page');});
 add_action('admin_init',function(){register_setting('bcst_settings','bcst_settings',array('sanitize_callback'=>function($value){
-    $out=array();foreach(array('email','phone','whatsapp','address','headline','intro','facebook','tiktok') as $key){$v=isset($value[$key])&&is_string($value[$key])?$value[$key]:'';$out[$key]=$key==='email'?sanitize_email($v):(in_array($key,array('facebook','tiktok'),true)?esc_url_raw($v):sanitize_textarea_field($v));}return $out;
+    $out=array();foreach(array('email','phone','whatsapp','address','headline','intro','footer_intro','facebook','tiktok') as $key){$v=isset($value[$key])&&is_string($value[$key])?$value[$key]:'';$out[$key]=$key==='email'?sanitize_email($v):(in_array($key,array('facebook','tiktok'),true)?esc_url_raw($v):sanitize_textarea_field($v));}return $out;
 }));});
 function bcst_settings_page(){
     if(!current_user_can('manage_options'))return;
     echo '<div class="wrap"><h1>工业站设置</h1><p>询盘同时保存在后台。邮件投递需配置 SMTP 并实际测试。WhatsApp 填国家码加号码，仅数字。</p><form method="post" action="options.php">';settings_fields('bcst_settings');$values=get_option('bcst_settings',array());
     bcst_company_logo_control();
     bcst_navigation_root_control();
-    foreach(array('email'=>'销售收件邮箱','phone'=>'联系电话','whatsapp'=>'WhatsApp','address'=>'公司地址','headline'=>'首页标题','intro'=>'首页介绍','facebook'=>'Facebook 链接','tiktok'=>'TikTok 链接') as $key=>$label)echo '<p><label>'.esc_html($label).'<br><textarea class="large-text" name="bcst_settings['.esc_attr($key).']">'.esc_textarea($values[$key]??'').'</textarea></label></p>';
-    submit_button();echo '</form><hr><h2>初始化页面</h2><p>补齐基础页面与示例产品草稿，不覆盖现有内容。示例分类仅用于演示，可按客户目录调整；产品必须补齐真实参数后发布。首页设置只在首次执行时更改。</p><form action="'.esc_url(admin_url('admin-post.php')).'" method="post"><input type="hidden" name="action" value="bcst_setup">';wp_nonce_field('bcst_setup');submit_button('创建基础页面');echo '</form><p><a class="button" href="'.esc_url(wp_nonce_url(admin_url('admin-post.php?action=bcst_export'),'bcst_export')).'">导出最近 1000 条询盘 CSV</a></p></div>';
+    foreach(array('email'=>'销售收件邮箱','phone'=>'联系电话','whatsapp'=>'WhatsApp','address'=>'公司地址','headline'=>'首页标题','intro'=>'首页介绍','footer_intro'=>'页脚公司简介（留空时使用首页介绍）','facebook'=>'Facebook 链接','tiktok'=>'TikTok 链接') as $key=>$label)echo '<p><label>'.esc_html($label).'<br><textarea class="large-text" name="bcst_settings['.esc_attr($key).']">'.esc_textarea($values[$key]??'').'</textarea></label></p>';
+    submit_button();echo '</form><hr><p><a class="button" href="'.esc_url(wp_nonce_url(admin_url('admin-post.php?action=bcst_export'),'bcst_export')).'">导出最近 1000 条询盘 CSV</a></p></div>';
 }
 add_action('admin_post_bcst_setup',function(){
     if(!current_user_can('manage_options'))wp_die('Forbidden',403);check_admin_referer('bcst_setup');
-    $pages=array('home'=>'Home','about'=>'About Us','industries'=>'Industries','resources'=>'Resources','contact'=>'Contact Us','insights'=>'Insights');$ids=array();
-    $bodies=array('home'=>'','about'=>'<h2>Company profile</h2><p>[Replace with your verified company introduction before launch.]</p><h2>Manufacturing & quality</h2><p>[Add genuine factory photos, quality procedures and certificates.]</p>','industries'=>'<h2>Solutions for your application</h2><p>[Describe the industries your company actually serves. Include application conditions and links to suitable products.]</p><h2>Discuss your requirements</h2>[bcst_inquiry]','resources'=>'<h2>Technical resources</h2><p>[Upload approved product catalogues and manuals to the media library, then add download links here.]</p>','contact'=>'[bcst_inquiry]','insights'=>'');
-    foreach($pages as $slug=>$title){$p=get_page_by_path($slug);$ids[$slug]=$p?$p->ID:wp_insert_post(array('post_type'=>'page','post_status'=>'publish','post_title'=>$title,'post_name'=>$slug,'post_content'=>$bodies[$slug]));}
-    if(!get_option('bcst_initialized')){update_option('show_on_front','page');update_option('page_on_front',$ids['home']);update_option('page_for_posts',$ids['insights']);update_option('bcst_initialized',1);}
-    foreach(array('Technical Training','Case Studies','Company News') as $name)if(!term_exists($name,'category'))wp_insert_term($name,'category');
-    if(!get_option('bcst_sample_created')){
-        $parent=0;foreach(array('Automatic Valves','Control Valves','Pneumatic Control Valves') as $name){$term=term_exists($name,'bcst_category',$parent);if(!$term)$term=wp_insert_term($name,'bcst_category',array('parent'=>$parent));if(is_wp_error($term))break;$parent=(int)$term['term_id'];}
-        $sample=wp_insert_post(array('post_type'=>'bcst_product','post_status'=>'draft','post_title'=>'Demo — Pneumatic Control Valve','post_content'=>'<p>演示草稿：请替换为客户实际产品介绍、应用场景、材质和规格，并上传真实产品图。请勿直接发布示例参数。</p>','post_excerpt'=>'Replace with a verified product summary.'));
-        if($sample){wp_set_object_terms($sample,array($parent),'bcst_category');update_post_meta($sample,'_bcst_specs',"Material | To be confirmed\nPressure rating | To be confirmed");update_option('bcst_sample_created',1);}
-    }
-    flush_rewrite_rules();wp_safe_redirect(admin_url('options-general.php?page=bcst-settings'));exit;
+    // Reject submissions from stale admin tabs without changing any site data.
+    wp_die('旧版建站初始化已停用，请返回工业站设置。','初始化已停用',array('response'=>410,'back_link'=>true));
 });
 
 function bcst_text($text){return function_exists('pll__')?pll__($text):$text;}
