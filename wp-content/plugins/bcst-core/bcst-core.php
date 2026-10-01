@@ -85,7 +85,7 @@ function bcst_settings_page(){
     bcst_navigation_root_control();
     bcst_contact_control();
     foreach(array('email'=>'公司联系邮箱（仅前台展示）','phone'=>'联系电话','whatsapp'=>'WhatsApp','address'=>'公司地址','headline'=>'首页标题','intro'=>'首页介绍','footer_intro'=>'页脚公司简介（留空时使用首页介绍）','facebook'=>'Facebook 链接','tiktok'=>'TikTok 链接') as $key=>$label)echo '<p><label>'.esc_html($label).'<br><textarea class="large-text" name="bcst_settings['.esc_attr($key).']">'.esc_textarea($values[$key]??'').'</textarea></label></p>';
-    submit_button();echo '</form><hr><p><a class="button" href="'.esc_url(wp_nonce_url(admin_url('admin-post.php?action=bcst_export'),'bcst_export')).'">导出最近 1000 条询盘 CSV</a></p></div>';
+    submit_button();echo '</form></div>';
 }
 add_action('admin_post_bcst_setup',function(){
     if(!current_user_can('manage_options'))wp_die('Forbidden',403);check_admin_referer('bcst_setup');
@@ -113,6 +113,13 @@ function bcst_submit(){
     nocache_headers();wp_die(esc_html(bcst_inquiry_text('Thank you. Your inquiry has been saved.')).'<p><a href="'.esc_url(home_url('/')).'">'.esc_html(bcst_text('Home')).'</a></p>',esc_html(bcst_inquiry_text('Inquiry received')),array('response'=>200));
 }
 add_action('admin_post_bcst_inquiry','bcst_submit');add_action('admin_post_nopriv_bcst_inquiry','bcst_submit');
+
+// Keep inquiry actions beside the list filters, not in site configuration.
+add_action('manage_posts_extra_tablenav',function($which){
+    $screen=get_current_screen();
+    if($which!=='top' || !$screen || $screen->id!=='edit-bcst_inquiry' || !current_user_can('manage_options'))return;
+    echo '<div class="alignleft actions"><a class="button" href="'.esc_url(wp_nonce_url(admin_url('admin-post.php?action=bcst_export'),'bcst_export')).'" title="导出全部询盘中最近的 1000 条，不受当前列表筛选或勾选影响">导出最近 1000 条询盘 CSV</a></div>';
+});
 
 add_action('admin_post_bcst_export',function(){
     if(!current_user_can('manage_options'))wp_die('Forbidden',403);check_admin_referer('bcst_export');
