@@ -9,7 +9,8 @@ function bcst_tx_strings() {
     // Date/time formats are PHP format tokens, not prose. Keep them in
     // Polylang's native editor, but never send them to a translation model.
     return array_filter(PLL_Admin_Strings::get_strings(),function($row){
-        return !in_array($row['name']??'',array('date_format','time_format'),true);
+        $name=$row['name']??'';
+        return !in_array($name,array('date_format','time_format'),true) && !preg_match('/^bcst_person_\d+_name$/',$name);
     });
 }
 function bcst_tx_mo($language) {

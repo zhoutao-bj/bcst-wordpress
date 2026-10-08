@@ -31,7 +31,7 @@ function bcst_translation_center() {
         array('文章标签翻译','edit-tags.php?taxonomy=post_tag','勾选标签并点击“翻译”，补齐其他所有语言的名称和描述。'),
         array('固定界面与公共文字翻译','admin.php?page=mlang_strings','勾选公共文字，点击“翻译”补齐其他所有语言，已有译文跳过。可按分组筛选页头、页脚、表单等文案。'),
         array('媒体说明文字','upload.php?mode=list','切换媒体列表模式，勾选后翻译标题、说明、图注及图片 Alt，不处理图片或视频内部内容。'),
-        array('工业站文案翻译','admin.php?page=mlang_strings&group='.rawurlencode('工业站设置'),'在工业站设置保存源文案后，从这里勾选翻译首页、页脚、地址、销售人员姓名和职位；邮箱和电话保持原样。'),
+        array('工业站文案翻译','admin.php?page=mlang_strings&group='.rawurlencode('工业站设置'),'在工业站设置保存源文案后，从这里勾选翻译首页、页脚、地址和销售人员职位；姓名、邮箱、电话和链接保持原样。'),
         array('语言管理','admin.php?page=mlang','新增或维护语言。翻译目标语言自动读取 Polylang 配置。'),
     );
     echo '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;max-width:1200px;margin-top:20px">';

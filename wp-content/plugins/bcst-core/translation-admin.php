@@ -69,11 +69,17 @@ add_action('wp_ajax_bcst_tx_inline',function(){
     if (isset($error)) wp_send_json_error(array('message'=>$error),400);
     wp_send_json_success(array('text'=>$text,'existing'=>$existing));
 });
+// Field purpose, not language detection or capitalization, decides translation.
+// Unlisted fields default to preservation until explicitly reviewed.
+function bcst_tx_setting_field_translatable($scope,$key) {
+    $fields=array('settings'=>array('headline','intro','footer_intro','address'),'person'=>array('role'));
+    return isset($fields[$scope]) && in_array($key,$fields[$scope],true);
+}
 function bcst_tx_setting_strings() {
     $values=get_option('bcst_settings',array());$out=array();
-    foreach (array('headline','intro','footer_intro','address') as $key) if (!empty($values[$key])) $out['setting_'.$key]=$values[$key];
+    foreach ($values as $key=>$value) if (bcst_tx_setting_field_translatable('settings',$key) && is_string($value) && $value!=='') $out['setting_'.$key]=$value;
     $contact=get_option('bcst_contact',array());
-    foreach (($contact['people']??array()) as $i=>$person) foreach (array('name','role') as $key) if (!empty($person[$key])) $out['person_'.$i.'_'.$key]=$person[$key];
+    foreach (($contact['people']??array()) as $i=>$person) foreach ($person as $key=>$value) if (bcst_tx_setting_field_translatable('person',$key) && is_string($value) && $value!=='') $out['person_'.$i.'_'.$key]=$value;
     return $out;
 }
 add_action('admin_init',function(){
@@ -81,6 +87,50 @@ add_action('admin_init',function(){
     foreach (array('Copyright','Social media','Pagination') as $text) pll_register_string($text,$text,'BCST');
     foreach (bcst_tx_setting_strings() as $key=>$value) pll_register_string('bcst_'.$key,$value,'工业站设置',true);
 },110);
+// Remove only legacy contact-name translations. Polylang keys entries by source
+// text, not field: a name also used by another registered string must be retained.
+add_action('admin_init',function(){
+    if (!current_user_can('manage_options') || wp_doing_ajax() || !empty($_POST) || !class_exists('PLL_Admin_Strings') || !class_exists('PLL_MO') || !function_exists('pll_languages_list')) return;
+    $contact=get_option('bcst_contact',array());$names=array();
+    foreach (($contact['people']??array()) as $person) if (!empty($person['name']) && is_string($person['name'])) $names[]=$person['name'];
+    $names=array_values(array_unique($names));sort($names);
+    $languages=pll_languages_list(array('fields'=>'slug','hide_empty'=>false));sort($languages);
+    if (!$languages) return;
+    $registered=PLL_Admin_Strings::get_strings();
+    $shared=array();foreach ($registered as $row) if (!preg_match('/^bcst_person_\d+_name$/',$row['name']??'')) $shared[]=$row['string'];
+    $candidates=array_values(array_diff($names,$shared));
+    $signature=hash('sha256',wp_json_encode(array(1,$names,$languages,$candidates)));
+    if (get_option('bcst_name_translation_cleanup_v1')===$signature) return;
+    if (!add_option('bcst_bt_lock',time(),'',false)) return;
+    try {
+        foreach ($languages as $code) {
+            list($mo,$language)=bcst_tx_mo($code);$remove=array();
+            foreach ($candidates as $name) {
+                $entry=new Translation_Entry(array('singular'=>$name));$key=$entry->key();
+                if (isset($mo->entries[$key])) $remove[$key]=$mo->entries[$key];
+            }
+            if (!$remove) continue;
+            // Preserve a recoverable copy before any deletion. Never store keys.
+            $backup_key='bcst_name_translation_backup_v1';$backup=get_option($backup_key,array());
+            foreach ($remove as $key=>$entry) if (!isset($backup[$code][$key])) $backup[$code][$key]=get_object_vars($entry);
+            update_option($backup_key,$backup,false);
+            if (get_option($backup_key)!=$backup) throw new Exception('姓名旧译文备份失败，未执行清理。');
+            foreach ($remove as $key=>$entry) unset($mo->entries[$key]);
+            $mo->export_to_db($language);
+            list($check)=bcst_tx_mo($code);
+            foreach ($remove as $key=>$entry) if (isset($check->entries[$key])) throw new Exception('姓名旧译文清理未保存，请重试。');
+        }
+        do_action('pll_save_strings_translations');
+        update_option('bcst_name_translation_cleanup_shared_v1',array_values(array_intersect($names,$shared)),false);
+        update_option('bcst_name_translation_cleanup_v1',$signature,false);
+    } catch (Throwable $e) {
+        add_action('admin_notices',function() use ($e){echo '<div class="notice notice-error"><p>'.esc_html($e->getMessage()).'</p></div>';});
+    } finally { delete_option('bcst_bt_lock'); }
+},120);
+add_action('admin_notices',function(){
+    if (!current_user_can('manage_options') || !in_array($_GET['page']??'',array('bcst-batch-translation','mlang_strings','bcst-settings'),true)) return;
+    if (get_option('bcst_name_translation_cleanup_shared_v1',array())) echo '<div class="notice notice-warning"><p>部分姓名与其他可翻译文案原文相同，共用译文未删除，以免影响其他字段；前台姓名已直接使用原文。</p></div>';
+});
 // Execution state is scoped to this administrator and browser run, not a task page.
 function bcst_tx_run_key($run) {
     if (!preg_match('/^[a-f0-9-]{36}$/D',$run)) throw new Exception('翻译会话无效，请重新勾选翻译。');

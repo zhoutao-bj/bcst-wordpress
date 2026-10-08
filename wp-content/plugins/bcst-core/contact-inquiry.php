@@ -74,8 +74,9 @@ function bcst_contact_team(){
     foreach(($settings['people']??array()) as $person){
         if(empty($person['name']))continue;
         $html.='<article class="bcst-contact-card">';
-        if(!empty($person['photo']))$html.=wp_get_attachment_image($person['photo'],'thumbnail',false,array('class'=>'bcst-person-avatar','alt'=>bcst_text($person['name'])));
-        $html.='<h3>'.esc_html(bcst_text($person['name'])).'</h3>';
+        // Identity fields are shared across languages, never dictionary lookups.
+        if(!empty($person['photo']))$html.=wp_get_attachment_image($person['photo'],'thumbnail',false,array('class'=>'bcst-person-avatar','alt'=>$person['name']));
+        $html.='<h3>'.esc_html($person['name']).'</h3>';
         if(!empty($person['role']))$html.='<p>'.esc_html(bcst_text($person['role'])).'</p>';
         $html.=bcst_contact_links($person).'</article>';
     }
