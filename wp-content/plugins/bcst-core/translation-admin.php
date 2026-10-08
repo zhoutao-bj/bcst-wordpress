@@ -32,7 +32,7 @@ add_action('admin_enqueue_scripts',function(){
     if ($screen->base==='edit-tags' && in_array($screen->taxonomy,bcst_tx_taxonomies(),true)) { $context='taxonomy';$taxonomy=$screen->taxonomy; }
     if (isset($_GET['page']) && $_GET['page']==='mlang_strings') $context='string';
     if (!$context) return;
-    wp_enqueue_script('bcst-translation-actions',plugins_url('translation-actions.js',__FILE__),array(),'2.4.2',true);
+    wp_enqueue_script('bcst-translation-actions',plugins_url('translation-actions.js',__FILE__),array(),'2.4.3',true);
     wp_localize_script('bcst-translation-actions','bcstTranslationLanguages',array('languages'=>bcst_bailian_languages(),'selected'=>isset($_GET['lang'])&&is_string($_GET['lang'])?sanitize_key($_GET['lang']):'all'));
     $ui=array('url'=>admin_url('admin-ajax.php'),'nonce'=>wp_create_nonce('bcst_tx_select'),'kind'=>$context,'taxonomy'=>$taxonomy,'media'=>$screen->base==='upload','mediaList'=>admin_url('upload.php?mode=list'),'sourceLanguage'=>function_exists('pll_default_language')?pll_default_language():'en');
     if ($context==='string') $ui['strings']=array_map(function($row){return $row['string'];},bcst_tx_strings());

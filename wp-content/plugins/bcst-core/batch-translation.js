@@ -10,7 +10,8 @@
     busy = true; stopped = false; run.disabled = retry.disabled = true;
     try {
       do {
-        const body = new URLSearchParams({action:'bcst_bt_step',nonce:bcstBatch.nonce,retry:retrying?'1':'0'});
+        // fetch does not run Polylang's jQuery AJAX prefilter.
+        const body = new URLSearchParams({action:'bcst_bt_step',nonce:bcstBatch.nonce,retry:retrying?'1':'0',pll_ajax_backend:'1',pll_ajax_settings:'1'});
         const res = await fetch(bcstBatch.url,{method:'POST',credentials:'same-origin',body});
         const data = await res.json();
         if (!data.success) throw new Error(data.data?.message || '请求失败，请刷新页面后继续。');

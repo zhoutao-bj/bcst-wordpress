@@ -57,7 +57,7 @@ function bcst_bt_page() {
     $job = get_option(bcst_bt_key());
     if ($job) {
         echo '<h2>任务进度</h2><p>保持本页打开。关闭页面会停止后续请求，已完成片段保留；可返回继续。失败不会自动重试计费。</p><button class="button button-primary" id="bcst-run">开始 / 继续</button> <button class="button" id="bcst-pause">暂停后续请求</button> <button class="button" id="bcst-retry">重试失败项（可能计费）</button><pre id="bcst-progress" style="white-space:pre-wrap">' . esc_html(bcst_bt_summary($job)) . '</pre>';
-        wp_enqueue_script('bcst-batch',plugins_url('batch-translation.js',__FILE__),array(),'1.0.0',true);
+        wp_enqueue_script('bcst-batch',plugins_url('batch-translation.js',__FILE__),array(),'1.0.1',true);
         wp_localize_script('bcst-batch','bcstBatch',array('url'=>admin_url('admin-ajax.php'),'nonce'=>wp_create_nonce('bcst_bt_step')));
     }
     echo '</div>';

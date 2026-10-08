@@ -1,6 +1,11 @@
 (() => {
     'use strict';
     const config = bcstTranslationActions;
+    // Native fetch bypasses Polylang's jQuery prefilter. Load its admin
+    // settings context so AJAX sees the same registered strings as this page.
+    function translationRequest(fields){
+        return new URLSearchParams({...fields,pll_ajax_backend:'1',pll_ajax_settings:'1'});
+    }
     const languageBar=document.createElement('span');languageBar.style.cssText='display:inline-flex;gap:6px;margin:0 8px;align-items:center';
     const languageSelect=document.createElement('select');languageSelect.setAttribute('aria-label','筛选列表语言');languageSelect.name='lang';
     languageSelect.add(new Option('全部语言','all'));
@@ -58,7 +63,7 @@
             for(const lang of Object.keys(bcstTranslationLanguages.languages)){
                 if(lang===config.sourceLanguage)continue;
                 const input=document.getElementById(`${lang}-${id}`);
-                if(!input){status.textContent='请先切换到“全部语言”，再勾选翻译，以便填入所有目标语言。';return;}
+                if(!input){status.textContent='页面缺少目标语言输入框，请保存当前修改后刷新页面重试。';return;}
                 if(!input.disabled&&!input.readOnly&&!input.value.trim())jobs.push({id,lang,input,original:config.strings[id]});
             }
         }
@@ -70,7 +75,7 @@
             for(const job of jobs){
                 if(job.input.value.trim())continue;
                 status.textContent=`正在翻译 ${done+1}/${jobs.length}（${bcstTranslationLanguages.languages[job.lang].name}）…`;
-                const data=new URLSearchParams({action:'bcst_tx_inline',nonce:config.nonce,id:job.id,original:job.original,source,target:job.lang});
+                const data=translationRequest({action:'bcst_tx_inline',nonce:config.nonce,id:job.id,original:job.original,source,target:job.lang});
                 const response=await fetch(config.url,{method:'POST',credentials:'same-origin',body:data});
                 const result=await response.json();
                 if(!response.ok||!result.success)throw Error(result.data?.message||'请求失败，请重试。');
@@ -87,7 +92,7 @@
         if(!all&&!ids.length){status.textContent='请先勾选需要翻译的内容。';return;}
         if(config.kind==='string'){await inlineTranslate(ids);return;}
         if(all&&!confirm('将读取已保存的工业站文案，请先保存修改。自动补齐其他所有语言，已有译文跳过；下一页确认原文语言和任务。继续吗？'))return;
-        const data=new URLSearchParams({action:'bcst_tx_select',nonce:config.nonce,kind:config.kind,taxonomy:config.taxonomy,all:all?'1':'0'});ids.forEach(id=>data.append('ids[]',id));
+        const data=translationRequest({action:'bcst_tx_select',nonce:config.nonce,kind:config.kind,taxonomy:config.taxonomy,all:all?'1':'0'});ids.forEach(id=>data.append('ids[]',id));
         bar.querySelectorAll('button').forEach(b=>{b.disabled=true;});status.textContent='正在检查配置…';
         try{const res=await fetch(config.url,{method:'POST',credentials:'same-origin',body:data});const result=await res.json();if(!res.ok||!result.success)throw Error(result.data?.message||'请求失败，请刷新后重试。');location.assign(result.data.url);}
         catch(error){status.textContent=error.message;bar.querySelectorAll('button').forEach(b=>{b.disabled=false;});}
