@@ -59,6 +59,8 @@ function bcst_bailian_translate($text, $source, $target, &$request_details = nul
     if (!in_array($config['model'], bcst_bailian_models(), true)) throw new Exception('模型配置无效。');
     $url = bcst_bailian_endpoint($config);
     $translation_options = array('source_lang'=>$languages[$source]['api'],'target_lang'=>$languages[$target]['api']);
+    $website_context = 'The text is from an industrial company website, including its navigation, product information and WordPress privacy policy. Translate faithfully and concisely. For standalone website headings, Cookies means browser HTTP cookies, never food; Media means uploaded images, videos and other media files, never news organizations, a physical medium or the environment. Preserve technical meaning and do not add explanations.';
+    $translation_options['domains'] = $website_context;
     // MT models do not accept system messages. Supply protected fragment tokens
     // as identity terms as well as a domain instruction, without changing model routing.
     preg_match_all('/__BCST_[a-f0-9]{12}_\d+__/', $text, $protected_tokens);
@@ -68,7 +70,7 @@ function bcst_bailian_translate($text, $source, $target, &$request_details = nul
         foreach (array_unique($protected_tokens[0]) as $token) {
             $translation_options['terms'][] = array('source'=>$token, 'target'=>$token);
         }
-        $translation_options['domains'] = 'Translate website prose faithfully and concisely, preserving technical facts and formatting placeholders.' . $token_instruction;
+        $translation_options['domains'] .= $token_instruction;
     }
     $body = array('model'=>$config['model'],'stream'=>false,
         'messages'=>array(array('role'=>'user','content'=>$text)),
@@ -80,8 +82,9 @@ function bcst_bailian_translate($text, $source, $target, &$request_details = nul
                 array('role'=>'user','content'=>$text)));
         $body['messages'][0]['content'].=' The source language code describes the main language, not a restriction on what to translate. Translate ALL natural-language prose in the input, including embedded Chinese or other languages and ordinary text in square brackets, into Cyrillic Mongolian. Do not leave a Chinese sentence unchanged because the main source language is English. Preserve genuine code placeholders and markup, not ordinary bracketed sentences.';
     }
-    if (!empty($protected_tokens[0]) && ($target === 'mn' || $languages[$target]['api'] === 'mn')) {
-        $body['messages'][0]['content'] .= $token_instruction;
+    if ($target === 'mn' || $languages[$target]['api'] === 'mn') {
+        $body['messages'][0]['content'] .= ' ' . $website_context;
+        if (!empty($protected_tokens[0])) $body['messages'][0]['content'] .= $token_instruction;
     }
     // Diagnostic data is explicitly allowlisted and never includes authentication headers.
     $request_details = array('method'=>'POST','url'=>$url,'body'=>$body);
