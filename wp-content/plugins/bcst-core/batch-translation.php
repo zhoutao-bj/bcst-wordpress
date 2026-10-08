@@ -28,25 +28,24 @@ function bcst_translation_center() {
     echo '<div class="wrap"><h1>多语言翻译中心</h1><p>先检查和配置翻译服务，再按内容类型进入管理页面。进入本页不会自动调用翻译接口，也没有整站一键翻译。</p>';
     bcst_bailian_status();
     bcst_bailian_page();
-    bcst_ui_coverage();
     echo '<h2>内容翻译入口</h2>';
     $entries = array(
-        array('产品翻译','edit.php?post_type=bcst_product','已支持批量翻译。勾选产品，点击 Filter 旁的“翻译所选内容（先确认）”按钮。'),
-        array('文章翻译 / All Posts','edit.php','已支持批量翻译。勾选文章，点击 Filter 旁的“翻译所选内容（先确认）”按钮。'),
+        array('产品翻译','edit.php?post_type=bcst_product','勾选产品并点击“翻译”，补齐其他所有语言，已有译文跳过。'),
+        array('文章翻译 / All Posts','edit.php','勾选文章并点击“翻译”，补齐其他所有语言，已有译文跳过。'),
         array('页面翻译 / Pages','edit.php?post_type=page','勾选页面后点击翻译按钮，自动补齐父页面、绑定分类或文章，保留排序和展示方式。'),
-        array('产品分类翻译','edit-tags.php?taxonomy=bcst_category&post_type=bcst_product','支持翻译所选或全部主语言产品分类，父级先处理。'),
-        array('文章分类翻译','edit-tags.php?taxonomy=category','翻译所选或全部主语言文章分类的名称、描述，保留层级与语言关联。'),
-        array('文章标签翻译','edit-tags.php?taxonomy=post_tag','翻译所选或全部主语言标签的名称、描述及语言关联。'),
-        array('固定界面与公共文字翻译','admin.php?page=mlang_strings','Languages → Translations：使用独立翻译复选框勾选公共文字，再点击 Filter 旁的翻译按钮。'),
+        array('产品分类翻译','edit-tags.php?taxonomy=bcst_category&post_type=bcst_product','勾选分类并点击“翻译”，补齐其他所有语言；父级先处理。'),
+        array('文章分类翻译','edit-tags.php?taxonomy=category','勾选分类并点击“翻译”，翻译名称、描述，保留层级与语言关联。'),
+        array('文章标签翻译','edit-tags.php?taxonomy=post_tag','勾选标签并点击“翻译”，补齐其他所有语言的名称和描述。'),
+        array('固定界面与公共文字翻译','admin.php?page=mlang_strings','勾选公共文字，点击“翻译”补齐其他所有语言，已有译文跳过。可按分组筛选页头、页脚、表单等文案。'),
         array('媒体说明文字','upload.php?mode=list','切换媒体列表模式，勾选后翻译标题、说明、图注及图片 Alt，不处理图片或视频内部内容。'),
-        array('工业站文案设置','options-general.php?page=bcst-settings','保存源文案后点击“翻译工业站文案”，翻译首页、页脚、地址、销售人员姓名和职位，不翻译邮箱或电话。'),
+        array('工业站文案翻译','admin.php?page=mlang_strings&group='.rawurlencode('工业站设置'),'在工业站设置保存源文案后，从这里勾选翻译首页、页脚、地址、销售人员姓名和职位；邮箱和电话保持原样。'),
         array('语言管理','admin.php?page=mlang','新增或维护语言。批量任务的目标语言自动读取 Polylang 配置。'),
     );
     echo '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;max-width:1200px;margin-top:20px">';
     foreach ($entries as $entry) {
         echo '<section style="background:#fff;border:1px solid #c3c4c7;border-radius:6px;padding:20px"><h2 style="margin-top:0"><a href="' . esc_url(admin_url($entry[1])) . '">' . esc_html($entry[0]) . '</a></h2><p>' . esc_html($entry[2]) . '</p><a class="button" href="' . esc_url(admin_url($entry[1])) . '">进入管理</a></section>';
     }
-    echo '</div><h2>翻译任务</h2><p>查看所选内容、创建分类任务，或继续本人尚未完成的任务。默认跳过已有译文，可明确选择覆盖；新产品、文章和页面保存草稿，分类、媒体文字及公共文字保存后立即生效。</p><p><a class="button" href="' . esc_url(bcst_bt_url()) . '">进入任务确认 / 查看进度</a></p></div>';
+    echo '</div><h2>翻译任务</h2><p>确认所选内容，自动补齐其他所有语言，已有译文（含草稿）跳过。新产品、文章和页面保存草稿，分类、媒体文字及公共文字保存后立即生效。</p><p><a class="button" href="' . esc_url(bcst_bt_url()) . '">进入任务确认 / 查看进度</a></p></div>';
 }
 function bcst_bt_page() {
     if (!current_user_can('manage_options')) return;
@@ -82,18 +81,15 @@ add_action('admin_post_bcst_bt_create',function () {
         if (!add_option('bcst_bt_lock',time(),'',false)) throw new Exception('有翻译请求正在执行，请稍后再创建任务。');
         $creation_lock=true;
         if (bcst_bailian_input('consent') !== '1') throw new Exception('请确认文字发送和费用。');
-        $requested = isset($_POST['targets']) && is_array($_POST['targets']) ? array_filter($_POST['targets'],'is_string') : array();
-        $allowed = array_keys(bcst_bailian_languages());
-        if (array_diff($requested,$allowed)) throw new Exception('所选语言已删除或配置变更，请刷新后重新选择。');
-        $targets = array_values(array_intersect($allowed,$requested));
-        if (!$targets) throw new Exception('请选择目标语言。');
+        $targets = array_keys(bcst_bailian_languages());
+        if (count($targets)<2) throw new Exception('请先配置至少两种语言。');
         $selection = get_transient('bcst_tx_selection_' . get_current_user_id());
         if (!$selection || !hash_equals(hash('sha256',wp_json_encode($selection)),bcst_bailian_input('selection_hash'))) throw new Exception('所选内容已过期或在其他标签页被更改，请刷新确认页重新核对。');
-        $tasks = bcst_tx_plan($selection,$targets,bcst_bailian_input('overwrite') === '1',bcst_bailian_input('source_lang'));
+        $tasks = bcst_tx_plan($selection,$targets,false,bcst_bailian_input('source_lang'));
         if (!$tasks) throw new Exception('没有可处理的内容。');
         if (count($tasks)>3000) throw new Exception('任务超过 3000 项，请缩小范围。');
         update_option(bcst_bt_key(),array('tasks'=>array_values($tasks),'created'=>time()),false);
-        $message = '任务已创建，点击开始 / 继续执行。同源语言跳过；已有译文按所选覆盖策略处理。';
+        $message = '任务已创建，点击开始 / 继续执行。自动补齐其他所有语言，同源语言和已有译文（含草稿）跳过。';
     } catch (Throwable $e) { $message = $e->getMessage(); }
     finally { if ($creation_lock) delete_option('bcst_bt_lock'); }
     wp_safe_redirect(bcst_bt_error($message)); exit;

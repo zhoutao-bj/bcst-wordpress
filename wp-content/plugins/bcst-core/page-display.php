@@ -91,5 +91,5 @@ add_action('admin_notices',function () {
     $screen=get_current_screen();
     if (!$screen || $screen->id!=='edit-page' || !function_exists('pll_default_language')) return;
     $base=admin_url('edit.php?post_type=page');
-    echo '<div class="notice notice-info"><p>多语言页面按语言筛选显示；同一内容的译文仍保留，点击国旗列的铅笔或加号维护。<a href="'.esc_url(add_query_arg('lang',pll_default_language(),$base)).'">主语言页面</a> · <a href="'.esc_url(add_query_arg('lang','all',$base)).'">全部语言</a>。其他语言可在顶部工具栏切换。</p></div>';
+    echo '<div class="notice notice-info"><p>使用本列表的语言下拉框筛选页面，点击国旗列的铅笔或加号维护译文。勾选页面后点击“翻译”，补齐其他所有语言，已有译文跳过。<a href="'.esc_url(add_query_arg('lang',pll_default_language(),$base)).'">主语言页面</a> · <a href="'.esc_url(add_query_arg('lang','all',$base)).'">全部语言</a>。</p></div>';
 });
