@@ -48,16 +48,15 @@ function bcst_bt_parts($text) {
     global $shortcode_tags;
     $tags=array_map(function($tag){return preg_quote($tag,'/');},array_keys((array)$shortcode_tags));
     $shortcode=$tags?'\\[\\[?\\/?(?:'.implode('|',$tags).')(?=[\\s\\/\\]])[^\\]\\r\\n]*\\]\\]?':'(?!)';
-    $parts = preg_split('/(<!--[\s\S]*?-->|<[^>]*>|'.$shortcode.'|https?:\/\/[^\s<>]+|&(?:#\d+|#x[0-9a-fA-F]+|[a-zA-Z]+);|\r\n|\r|\n|\|)/u',$text,-1,PREG_SPLIT_DELIM_CAPTURE);
+    $parts = preg_split('/(<!--[\s\S]*?-->|<(?:"[^"]*"|\'[^\']*\'|[^\'">])*>|'.$shortcode.'|\r\n|\r|\n|\|)/u',$text,-1,PREG_SPLIT_DELIM_CAPTURE);
     if ($parts === false) throw new Exception('内容不是有效 UTF-8。');
     $out = array(); $raw = false;
     foreach ($parts as $part) {
         if (preg_match('/^<(script|style|code|pre)\b/i',$part)) $raw = true;
-        $literal = $raw || preg_match('/^(?:<|https?:\/\/|&)/u',$part) || preg_match('/^(?:'.$shortcode.')$/u',$part) || !preg_match('/\p{L}/u',$part);
-        if ($literal) $out[] = array('source'=>$part,'text'=>$part);
+        $literal = $raw || preg_match('/^</u',$part) || preg_match('/^(?:'.$shortcode.')$/u',$part) || !preg_match('/\p{L}/u',html_entity_decode($part,ENT_QUOTES|ENT_HTML5,'UTF-8'));
+        if ($literal) $out[] = array('source'=>$part,'text'=>$part,'opaque'=>$raw);
         else {
-            preg_match_all('/.{1,700}(?:\s+|$)|.{1,700}/us',$part,$chunks);
-            foreach ($chunks[0] as $chunk) $out[] = array('source'=>$chunk);
+            $out[] = array('source'=>$part);
         }
         if (preg_match('/^<\/(script|style|code|pre)\s*>/i',$part)) $raw = false;
     }

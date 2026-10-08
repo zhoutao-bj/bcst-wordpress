@@ -1,6 +1,9 @@
 (() => {
     'use strict';
     const config = bcstTranslationActions;
+    // WordPress hides the top list-table actions on small screens. Mark only
+    // translation-enabled lists so their existing controls remain available.
+    document.querySelector('.tablenav.top')?.classList.add('bcst-translation-toolbar');
     // Native fetch bypasses Polylang's jQuery prefilter. Load its admin
     // settings context so AJAX sees the same registered strings as this page.
     function translationRequest(fields){
@@ -48,8 +51,8 @@
         });
         // Keep WordPress's existing header/footer select-all controls.
     }
-    const bar=document.createElement('span');bar.style.cssText='display:inline-flex;gap:8px;margin-left:8px;align-items:center;flex-wrap:wrap';
-    const status=document.createElement('span');status.setAttribute('role','status');
+    const bar=document.createElement('span');bar.className='bcst-translation-controls';bar.style.cssText='display:inline-flex;gap:8px;margin-left:8px;align-items:center;flex-wrap:wrap';
+    const status=document.createElement('span');status.className='bcst-translation-status';status.setAttribute('role','status');
     function button(label){const b=document.createElement('button');b.type='button';b.className='button button-primary';b.textContent=label;b.addEventListener('click',()=>select());bar.append(b);}
     button('翻译');
     bar.append(status);

@@ -177,16 +177,8 @@ function bcst_tx_tick(&$task) {
     if (hash('sha256',wp_json_encode($source))!==$task['planned_source']) throw new Exception('源内容已变更，请刷新列表后重新勾选翻译。');
     if (bcst_tx_target_hash($task)!==$task['planned_target']) throw new Exception('目标译文已变更，请刷新列表后重新勾选翻译，避免覆盖人工编辑。');
     if (!isset($task['parts'])) foreach ($source['fields'] as $key=>$value) $task['parts'][$key]=bcst_tx_parts((string)$value);
-    foreach ($task['parts'] as &$parts) foreach ($parts as &$part) {
-        if (isset($part['text'])) continue;
-        $result=bcst_bailian_translate($part['source'],$source['language'],$task['lang']);
-        preg_match_all('/[0-9]+(?:[.,][0-9]+)*/',$part['source'],$before);preg_match_all('/[0-9]+(?:[.,][0-9]+)*/',$result['text'],$after);sort($before[0]);sort($after[0]);
-        if ($before[0]!==$after[0]) throw new Exception('译文数字发生变化，已阻止保存。');
-        preg_match('/^\s*/u',$part['source'],$prefix);preg_match('/\s*$/u',$part['source'],$suffix);
-        $part['text']=$prefix[0].str_replace(array('[',']','|'),array('&#91;','&#93;','&#124;'),esc_html(trim($result['text']))).$suffix[0];
-        $task['tokens']=($task['tokens']??0)+$result['tokens'];return;
-    }
-    unset($parts,$part);$fields=array();
+    foreach ($task['parts'] as &$parts) if (bcst_tx_translate_part($parts,$source['language'],$task['lang'],$task)) return;
+    unset($parts);$fields=array();
     foreach ($task['parts'] as $key=>$parts) {
         $value=implode('',array_column($parts,'text'));
         $html=in_array($key,array('post_content','post_excerpt','description'),true) || ($key==='text' && strpos($task['original'],'<')!==false);
@@ -194,27 +186,90 @@ function bcst_tx_tick(&$task) {
     }
     bcst_tx_commit($task,$source,$fields);
 }
-// Protect placeholders, URLs, email addresses and typical model codes as literal segments.
-function bcst_tx_parts($text) {
-    $out=array();
-    foreach (bcst_bt_parts($text) as $part) {
-        if (isset($part['text'])) {
-            // Translate human-facing attributes without changing href, src, IDs or classes.
-            if (preg_match('/^<(?![!\/])/', $part['source']) && !preg_match('/^<(?:script|style|code|pre)\b/i',$part['source'])) {
-                $tag=$part['source'];$offset=0;
-                preg_match_all('/\s(?:alt|title|aria-label|placeholder)\s*=\s*(["\'])(.*?)\1/is',$tag,$matches,PREG_OFFSET_CAPTURE);
-                foreach ($matches[2] as $match) {
-                    $before=substr($tag,$offset,$match[1]-$offset);$out[]=array('source'=>$before,'text'=>$before);
-                    foreach (bcst_tx_parts($match[0]) as $attribute_part) $out[]=$attribute_part;
-                    $offset=$match[1]+strlen($match[0]);
-                }
-                $tail=substr($tag,$offset);$out[]=array('source'=>$tail,'text'=>$tail);
-            } else $out[]=$part;
-            continue;
+// A call translates at most one fragment (including human-facing attributes).
+function bcst_tx_translate_part(&$parts,$source,$target,&$task) {
+    foreach ($parts as &$part) {
+        if (isset($part['text'])) continue;
+        if (isset($part['children'])) {
+            if (bcst_tx_translate_part($part['children'],$source,$target,$task)) return true;
+            $part['text']=implode('',array_column($part['children'],'text'));continue;
         }
-        $pattern='/(%%[^%]+%%|%(?:\d+\$)?[-+0-9.]*[bcdeEfFgGosuxX]|%%|\{\{[^}]+\}\}|\{[a-zA-Z_][a-zA-Z0-9_]*\}|[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}|\b[A-Z][A-Z0-9]*[-_][A-Z0-9-]*\d[A-Z0-9-]*\b)/u';
-        $bits=preg_split($pattern,$part['source'],-1,PREG_SPLIT_DELIM_CAPTURE);
-        foreach ($bits as $i=>$bit) if ($bit!=='') $out[]=($i%2 || !preg_match('/\p{L}/u',$bit))?array('source'=>$bit,'text'=>$bit):array('source'=>$bit);
+        if (isset($part['keep'])) foreach ($part['keep'] as &$children) {
+            if (bcst_tx_translate_part($children,$source,$target,$task)) return true;
+        }
+        unset($children);
+        $result=bcst_bailian_translate($part['source'],$source,$target);
+        $part['text']=bcst_tx_restore_fragment($part,$result['text']);
+        $task['tokens']=($task['tokens']??0)+$result['tokens'];return true;
     }
-    return $out;
+    return false;
+}
+function bcst_tx_restore_fragment($part,$translated) {
+    $map=array();foreach (($part['keep']??array()) as $token=>$children) $map[$token]=implode('',array_column($children,'text'));
+    preg_match_all('/__BCST_[a-f0-9]{12}_\d+__/',$part['source'],$expected);
+    preg_match_all('/__BCST_[a-f0-9]{12}_\d+__/',$translated,$actual);
+    if ($expected[0]!==$actual[0]) throw new Exception('译文的标签或保护占位符发生变化，已阻止保存；不会自动重试计费。');
+    $before_text=strtr($part['source'],array_fill_keys(array_keys($map),''));
+    $after_text=strtr($translated,array_fill_keys(array_keys($map),''));
+    preg_match_all('/[0-9]+(?:[.,][0-9]+)*/',$before_text,$before);preg_match_all('/[0-9]+(?:[.,][0-9]+)*/',$after_text,$after);sort($before[0]);sort($after[0]);
+    if ($before[0]!==$after[0]) throw new Exception('译文数字发生变化，已阻止保存。');
+    preg_match('/^\s*/u',$part['source'],$prefix);preg_match('/\s*$/u',$part['source'],$suffix);
+    $escaped=str_replace(array('[',']','|'),array('&#91;','&#93;','&#124;'),esc_html(trim($translated)));
+    return $prefix[0].strtr($escaped,$map).$suffix[0];
+}
+// Keep sentences together across entities, inline markup, URLs and placeholders.
+function bcst_tx_parts($text,$attribute=false) {
+    $out=array();$buffer='';$keep=array();$index=0;
+    $salt=substr(hash('sha256',$text),0,12);
+    while (strpos($text,'__BCST_'.$salt.'_')!==false) $salt=substr(hash('sha256',$salt),0,12);
+    $protect=function($children) use (&$keep,&$index,$salt) {
+        $token='__BCST_'.$salt.'_'.(++$index).'__';$keep[$token]=$children;return $token;
+    };
+    $flush=function() use (&$out,&$buffer,&$keep) {
+        if ($buffer==='') return;
+        // Never cut a sentence or an atomic protected token merely to fit a limit.
+        $sentences=strlen($buffer)<=5500?array($buffer):preg_split('/(?<=[.!?。！？])(?=\s)/u',$buffer);
+        $chunks=array();$chunk='';foreach ($sentences as $sentence) {
+            if (strlen($sentence)>5500) throw new Exception('单句超过翻译长度限制，请先拆成完整短句后重试。');
+            if (strlen($chunk.$sentence)>5500) {$chunks[]=$chunk;$chunk='';}
+            $chunk.=$sentence;
+        }
+        if ($chunk!=='') $chunks[]=$chunk;
+        foreach ($chunks as $chunk) {
+            $map=array();foreach ($keep as $token=>$children) if (strpos($chunk,$token)!==false) $map[$token]=$children;
+            $visible=strtr($chunk,array_fill_keys(array_keys($map),''));
+            if (!preg_match('/\p{L}/u',$visible)) {
+                $pieces=preg_split('/(__BCST_[a-f0-9]{12}_\d+__)/',$chunk,-1,PREG_SPLIT_DELIM_CAPTURE);$children=array();
+                foreach ($pieces as $piece) if (isset($map[$piece])) $children=array_merge($children,$map[$piece]);else $children[]=array('source'=>$piece,'text'=>str_replace(array('[',']','|'),array('&#91;','&#93;','&#124;'),esc_html($piece)));
+                $out[]=array('children'=>$children);
+            } else $out[]=array('source'=>$chunk,'keep'=>$map);
+        }
+        $buffer='';$keep=array();
+    };
+    $parts=$attribute?array(array('source'=>$text)):bcst_bt_parts($text);
+    foreach ($parts as $part) {
+        $value=$part['source'];
+        if (!empty($part['opaque'])) {$flush();$out[]=$part;continue;}
+        $inline=!$attribute && preg_match('/^<\/?(?:a|abbr|b|bdi|bdo|br|cite|del|em|i|img|ins|mark|q|s|small|span|strong|sub|sup|u|wbr)\b/i',$value);
+        if (!$attribute && isset($part['text']) && preg_match('/^<(?![!\/])/', $value) && !preg_match('/^<(?:script|style|code|pre)\b/i',$value)) {
+            $children=array();$offset=0;
+            preg_match_all('/\s(?:alt|title|aria-label|placeholder)\s*=\s*(["\'])(.*?)\1/is',$value,$matches,PREG_OFFSET_CAPTURE);
+            foreach ($matches[2] as $match) {
+                $literal=substr($value,$offset,$match[1]-$offset);$children[]=array('source'=>$literal,'text'=>$literal);
+                $children=array_merge($children,bcst_tx_parts($match[0],true));$offset=$match[1]+strlen($match[0]);
+            }
+            $literal=substr($value,$offset);$children[]=array('source'=>$literal,'text'=>$literal);
+            if ($inline) $buffer.=$protect($children);else {$flush();$out[]=array('children'=>$children);}
+        } elseif (!$attribute && isset($part['text'])) {
+            if ($inline) $buffer.=$protect(array($part));
+            elseif (preg_match('/^\s*$/u',$value) && strpos($value,"\n\n")===false) $buffer.=$value;
+            elseif (!preg_match('/^(?:<|\[)/',$value) && $value!=='|') $buffer.=html_entity_decode($value,ENT_QUOTES|ENT_HTML5,'UTF-8');
+            else {$flush();$out[]=$part;}
+        } else {
+            $value=html_entity_decode($value,ENT_QUOTES|ENT_HTML5,'UTF-8');
+            $pattern='/(https?:\/\/[^\s<>]+|%%[^%]+%%|%(?:\d+\$)?[-+0-9.]*[bcdeEfFgGosuxX]|%%|\{\{[^}]+\}\}|\{[a-zA-Z_][a-zA-Z0-9_]*\}|[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}|\b[A-Z][A-Z0-9]*[-_][A-Z0-9-]*\d[A-Z0-9-]*\b)/u';
+            $buffer.=preg_replace_callback($pattern,function($m) use ($protect){return $protect(array(array('source'=>$m[0],'text'=>esc_html($m[0]))));},$value);
+        }
+    }
+    $flush();return $out;
 }

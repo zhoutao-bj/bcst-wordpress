@@ -1,0 +1,48 @@
+/* Keep the original form controls and handlers; do not clone mobile controls. */
+.bcst-translation-status {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+@media screen and (max-width: 782px) {
+    .tablenav.top.bcst-translation-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        height: auto;
+        min-height: 0;
+        margin-bottom: 12px;
+    }
+    .tablenav.top.bcst-translation-toolbar .actions {
+        display: flex;
+        float: none;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        max-width: 100%;
+        padding: 0;
+        overflow: visible;
+    }
+    .tablenav.top.bcst-translation-toolbar .actions select,
+    .tablenav.top.bcst-translation-toolbar .actions .button {
+        float: none;
+        max-width: 100%;
+        margin: 0;
+    }
+    .tablenav.top.bcst-translation-toolbar .tablenav-pages {
+        float: none;
+        width: 100%;
+        height: auto;
+        margin: 0;
+    }
+    .bcst-translation-controls {
+        max-width: 100%;
+        margin-left: 0 !important;
+    }
+    .bcst-translation-status:not(:empty) {
+        flex-basis: 100%;
+    }
+    .tablenav.top.bcst-translation-toolbar > .clear {
+        display: none;
+    }
+}
