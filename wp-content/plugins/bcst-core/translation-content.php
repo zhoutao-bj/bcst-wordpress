@@ -6,7 +6,11 @@ function bcst_tx_types() { return array('post','page','bcst_product','attachment
 function bcst_tx_taxonomies() { return array('category','post_tag','bcst_category'); }
 function bcst_tx_strings() {
     if (!class_exists('PLL_Admin_Strings') || !is_callable(array('PLL_Admin_Strings','get_strings'))) throw new Exception('当前 Polylang 不提供公共文字接口，请检查插件版本。');
-    return PLL_Admin_Strings::get_strings();
+    // Date/time formats are PHP format tokens, not prose. Keep them in
+    // Polylang's native editor, but never send them to a translation model.
+    return array_filter(PLL_Admin_Strings::get_strings(),function($row){
+        return !in_array($row['name']??'',array('date_format','time_format'),true);
+    });
 }
 function bcst_tx_mo($language) {
     if (!class_exists('PLL_MO') || !function_exists('PLL')) throw new Exception('公共文字翻译存储接口不可用。');

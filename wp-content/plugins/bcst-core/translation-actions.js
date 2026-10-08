@@ -31,6 +31,11 @@
     }
     if (config.kind==='string') {
         document.querySelectorAll('#the-list input[name="strings[]"]').forEach(original=>{
+            if(!Object.prototype.hasOwnProperty.call(config.strings,original.value)){
+                original.disabled=true;
+                original.title='格式代码不参与自动翻译，可手动维护右侧格式。';
+                return;
+            }
             // Reuse the existing row selector. Protected strings must never be
             // submitted to Polylang's delete handler, even when selected.
             if(original.disabled){original.removeAttribute('name');original.disabled=false;}
@@ -98,7 +103,7 @@
     async function select(){
         if(busy)return;
         const selector=config.kind==='string'?'.bcst-string-select:checked':config.kind==='taxonomy'?'#the-list input[name="delete_tags[]"]:checked, #the-list .bcst-term-select:checked':'#the-list input[name="post[]"]:checked, #the-list input[name="media[]"]:checked';
-        const ids=Array.from(document.querySelectorAll(selector),c=>c.value);
+        const ids=Array.from(document.querySelectorAll(selector)).filter(c=>!c.disabled).map(c=>c.value);
         if(!ids.length){status.textContent='请先勾选需要翻译的内容。';return;}
         if(config.kind==='string'){await inlineTranslate(ids);return;}
         const selection=JSON.stringify([...ids].sort());

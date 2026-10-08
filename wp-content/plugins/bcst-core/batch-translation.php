@@ -43,12 +43,17 @@ function bcst_translation_center() {
 
 // Preserve markup verbatim; translate only visible text, in bounded UTF-8 fragments.
 function bcst_bt_parts($text) {
-    $parts = preg_split('/(<!--[\s\S]*?-->|<[^>]*>|\[[^\]\r\n]*\]|https?:\/\/[^\s<>]+|&(?:#\d+|#x[0-9a-fA-F]+|[a-zA-Z]+);|\r\n|\r|\n|\|)/u',$text,-1,PREG_SPLIT_DELIM_CAPTURE);
+    // Only registered shortcode tokens are syntax. Ordinary [sentences]
+    // are visible prose; enclosing shortcode bodies still need translation.
+    global $shortcode_tags;
+    $tags=array_map(function($tag){return preg_quote($tag,'/');},array_keys((array)$shortcode_tags));
+    $shortcode=$tags?'\\[\\[?\\/?(?:'.implode('|',$tags).')(?=[\\s\\/\\]])[^\\]\\r\\n]*\\]\\]?':'(?!)';
+    $parts = preg_split('/(<!--[\s\S]*?-->|<[^>]*>|'.$shortcode.'|https?:\/\/[^\s<>]+|&(?:#\d+|#x[0-9a-fA-F]+|[a-zA-Z]+);|\r\n|\r|\n|\|)/u',$text,-1,PREG_SPLIT_DELIM_CAPTURE);
     if ($parts === false) throw new Exception('内容不是有效 UTF-8。');
     $out = array(); $raw = false;
     foreach ($parts as $part) {
         if (preg_match('/^<(script|style|code|pre)\b/i',$part)) $raw = true;
-        $literal = $raw || preg_match('/^(?:<|\[|https?:\/\/|&)/u',$part) || !preg_match('/\p{L}/u',$part);
+        $literal = $raw || preg_match('/^(?:<|https?:\/\/|&)/u',$part) || preg_match('/^(?:'.$shortcode.')$/u',$part) || !preg_match('/\p{L}/u',$part);
         if ($literal) $out[] = array('source'=>$part,'text'=>$part);
         else {
             preg_match_all('/.{1,700}(?:\s+|$)|.{1,700}/us',$part,$chunks);
