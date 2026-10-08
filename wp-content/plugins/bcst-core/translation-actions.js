@@ -45,16 +45,16 @@
     }
     const bar=document.createElement('span');bar.style.cssText='display:inline-flex;gap:8px;margin-left:8px;align-items:center;flex-wrap:wrap';
     const status=document.createElement('span');status.setAttribute('role','status');
-    function button(label,all){const b=document.createElement('button');b.type='button';b.className='button button-primary';b.textContent=label;b.addEventListener('click',()=>select(all));bar.append(b);}
-    button('翻译',false);
+    function button(label){const b=document.createElement('button');b.type='button';b.className='button button-primary';b.textContent=label;b.addEventListener('click',()=>select());bar.append(b);}
+    button('翻译');
     bar.append(status);
     const filter=document.querySelector('#post-query-submit, input[name="filter_action"], button[name="filter_action"]');
     const actions=document.querySelector('.tablenav.top .alignleft.actions');
     if(filter)filter.after(bar);else if(languageBar.isConnected)languageBar.after(bar);else if(actions)actions.after(bar);else document.querySelector('.wrap h1')?.after(bar);
     let busy=false,dirty=false;
-    if(config.kind==='string'){
+    {
         window.addEventListener('beforeunload',event=>{if(busy||dirty){event.preventDefault();event.returnValue='';}});
-        document.querySelector('#the-list')?.closest('form')?.addEventListener('submit',event=>{if(busy){event.preventDefault();status.textContent='翻译中，请等待完成再保存。';}else dirty=false;});
+        document.querySelector('#the-list')?.closest('form')?.addEventListener('submit',event=>{if(busy){event.preventDefault();status.textContent='翻译中，请等待完成再保存或筛选。';}else dirty=false;});
     }
     async function inlineTranslate(ids){
         if(busy)return;
@@ -86,15 +86,41 @@
         }catch(error){status.textContent=`已填入 ${done} 项，已停止：${error.message} 已填内容可先保存，再重试空白项。`;}
         finally{busy=false;bar.querySelectorAll('button,select').forEach(el=>el.disabled=false);languageSelect.disabled=false;}
     }
-    async function select(all){
+    let activeRun='',activeSelection='';
+    async function request(fields,ids=[]){
+        const data=translationRequest({...fields,nonce:config.nonce});
+        ids.forEach(id=>data.append('ids[]',id));
+        const response=await fetch(config.url,{method:'POST',credentials:'same-origin',body:data});
+        const result=await response.json();
+        if(!response.ok||!result.success)throw Error(result.data?.message||'请求失败，请稍后重试。');
+        return result.data;
+    }
+    async function select(){
+        if(busy)return;
         const selector=config.kind==='string'?'.bcst-string-select:checked':config.kind==='taxonomy'?'#the-list input[name="delete_tags[]"]:checked, #the-list .bcst-term-select:checked':'#the-list input[name="post[]"]:checked, #the-list input[name="media[]"]:checked';
         const ids=Array.from(document.querySelectorAll(selector),c=>c.value);
-        if(!all&&!ids.length){status.textContent='请先勾选需要翻译的内容。';return;}
+        if(!ids.length){status.textContent='请先勾选需要翻译的内容。';return;}
         if(config.kind==='string'){await inlineTranslate(ids);return;}
-        if(all&&!confirm('将读取已保存的工业站文案，请先保存修改。自动补齐其他所有语言，已有译文跳过；下一页确认原文语言和任务。继续吗？'))return;
-        const data=translationRequest({action:'bcst_tx_select',nonce:config.nonce,kind:config.kind,taxonomy:config.taxonomy,all:all?'1':'0'});ids.forEach(id=>data.append('ids[]',id));
-        bar.querySelectorAll('button').forEach(b=>{b.disabled=true;});status.textContent='正在检查配置…';
-        try{const res=await fetch(config.url,{method:'POST',credentials:'same-origin',body:data});const result=await res.json();if(!res.ok||!result.success)throw Error(result.data?.message||'请求失败，请刷新后重试。');location.assign(result.data.url);}
-        catch(error){status.textContent=error.message;bar.querySelectorAll('button').forEach(b=>{b.disabled=false;});}
+        const selection=JSON.stringify([...ids].sort());
+        busy=true;bar.querySelectorAll('button').forEach(b=>b.disabled=true);languageSelect.disabled=true;
+        status.textContent='正在检查配置和所选内容…';
+        try{
+            if(!activeRun||activeSelection!==selection){
+                const started=await request({action:'bcst_tx_start',kind:config.kind,taxonomy:config.taxonomy},ids);
+                activeRun=started.run;activeSelection=selection;status.textContent=started.message;
+            }
+            // One bounded fragment per request prevents long content timing out.
+            // The next request is issued only after the previous one has completed.
+            while(activeRun){
+                const progress=await request({action:'bcst_tx_step',run:activeRun});
+                status.textContent=progress.message;
+                if(progress.halted){
+                    status.textContent+='；修正问题后再次点击翻译可继续，已保存译文保留。';
+                    break;
+                }
+                if(!progress.pending){activeRun='';activeSelection='';break;}
+            }
+        }catch(error){status.textContent='已停止：'+error.message+' 已保存译文保留，不会自动重试。';}
+        finally{busy=false;bar.querySelectorAll('button').forEach(b=>b.disabled=false);languageSelect.disabled=false;}
     }
 })();

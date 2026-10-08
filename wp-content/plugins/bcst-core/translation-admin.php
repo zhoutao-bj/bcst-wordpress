@@ -32,7 +32,7 @@ add_action('admin_enqueue_scripts',function(){
     if ($screen->base==='edit-tags' && in_array($screen->taxonomy,bcst_tx_taxonomies(),true)) { $context='taxonomy';$taxonomy=$screen->taxonomy; }
     if (isset($_GET['page']) && $_GET['page']==='mlang_strings') $context='string';
     if (!$context) return;
-    wp_enqueue_script('bcst-translation-actions',plugins_url('translation-actions.js',__FILE__),array(),'2.4.3',true);
+    wp_enqueue_script('bcst-translation-actions',plugins_url('translation-actions.js',__FILE__),array(),'2.5.0',true);
     wp_localize_script('bcst-translation-actions','bcstTranslationLanguages',array('languages'=>bcst_bailian_languages(),'selected'=>isset($_GET['lang'])&&is_string($_GET['lang'])?sanitize_key($_GET['lang']):'all'));
     $ui=array('url'=>admin_url('admin-ajax.php'),'nonce'=>wp_create_nonce('bcst_tx_select'),'kind'=>$context,'taxonomy'=>$taxonomy,'media'=>$screen->base==='upload','mediaList'=>admin_url('upload.php?mode=list'),'sourceLanguage'=>function_exists('pll_default_language')?pll_default_language():'en');
     if ($context==='string') $ui['strings']=array_map(function($row){return $row['string'];},bcst_tx_strings());
@@ -81,41 +81,69 @@ add_action('admin_init',function(){
     foreach (array('Copyright','Social media','Pagination') as $text) pll_register_string($text,$text,'BCST');
     foreach (bcst_tx_setting_strings() as $key=>$value) pll_register_string('bcst_'.$key,$value,'工业站设置',true);
 },110);
-add_action('wp_ajax_bcst_tx_select',function(){
+// Execution state is scoped to this administrator and browser run, not a task page.
+function bcst_tx_run_key($run) {
+    if (!preg_match('/^[a-f0-9-]{36}$/D',$run)) throw new Exception('翻译会话无效，请重新勾选翻译。');
+    return 'bcst_tx_run_'.get_current_user_id().'_'.$run;
+}
+function bcst_tx_run_progress($state) {
+    $done=0;$skipped=0;$pending=0;$fragments=0;$current='';
+    foreach ($state['tasks'] as $task) {
+        if ($task['status']==='done') $done++;
+        elseif ($task['status']==='skipped') $skipped++;
+        else {
+            $pending++;
+            if (!$current) $current='#'.$task['id'].' → '.$task['lang'];
+        }
+        foreach (($task['parts']??array()) as $parts) foreach ($parts as $part) if (isset($part['text'])) $fragments++;
+    }
+    return array('pending'=>$pending>0,'message'=>sprintf('已处理 %d/%d 项（含关联内容），已生成 %d，已跳过 %d',$done+$skipped,count($state['tasks']),$done,$skipped).($pending?'；正在处理 '.$current.'，当前未完成内容已处理 '.$fragments.' 个片段':'；翻译完成，刷新列表可查看译文。'));
+}
+add_action('wp_ajax_bcst_tx_start',function(){
     if (!current_user_can('manage_options')) wp_send_json_error(array('message'=>'没有操作权限。'),403);
     check_ajax_referer('bcst_tx_select','nonce');
     try {
         bcst_bt_preflight();
-        $kind=bcst_bailian_input('kind');$all=bcst_bailian_input('all')==='1';$taxonomy=bcst_bailian_input('taxonomy');
-        $ids=isset($_POST['ids'])&&is_array($_POST['ids'])?array_values(array_filter(wp_unslash($_POST['ids']),'is_scalar')):array();
-        $ids=array_values(array_unique(array_map('strval',$ids)));
-        if (!in_array($kind,array('content','taxonomy','string','settings'),true)) throw new Exception('无效翻译入口。');
-        if ($all && $kind!=='settings') throw new Exception('请在列表勾选需要翻译的内容。');
-        if ($kind==='taxonomy') {
-            if (!in_array($taxonomy,bcst_tx_taxonomies(),true)) throw new Exception('无效分类类型。');
-            if ($all) {
-                $ids=get_terms(array('taxonomy'=>$taxonomy,'hide_empty'=>false,'lang'=>pll_default_language(),'fields'=>'ids'));
-                if (is_wp_error($ids)) throw new Exception($ids->get_error_message());
-            }
-            foreach ($ids as $id) { $t=get_term((int)$id,$taxonomy);if (!$t || is_wp_error($t) || !current_user_can('edit_term',$id)) throw new Exception('分类不可编辑。'); }
-        } elseif ($kind==='content') {
-            foreach ($ids as $id) { $p=get_post((int)$id);if (!$p || !in_array($p->post_type,bcst_tx_types(),true) || !current_user_can('edit_post',$id)) throw new Exception('所选内容不可编辑。'); }
-        } else {
-            $strings=bcst_tx_strings();
-            if ($kind==='settings') {
-                $values=array_values(bcst_tx_setting_strings());$ids=array();
-                foreach ($strings as $key=>$row) if (in_array($row['string'],$values,true)) $ids[]=(string)$key;
-            } elseif ($all) $ids=array_map('strval',array_keys($strings));
-            foreach ($ids as $id) if (!isset($strings[$id])) throw new Exception('公共文字列表已变化，请刷新后重新选择。');
-        }
-        if (!$ids) throw new Exception('请先勾选需要翻译的内容；如果没有数据，请先维护源文案。');
-        if (count($ids)>100 && !$all && $kind!=='settings') throw new Exception('每次最多勾选 100 条，请分批处理。');
-        if (count($ids)>3000) throw new Exception('内容超过 3000 条，请分批勾选。');
-        $selection=array('kind'=>$kind==='settings'?'string':$kind,'ids'=>$ids,'taxonomy'=>$taxonomy);
-        if ($selection['kind']==='string') foreach ($ids as $id) $selection['originals'][$id]=$strings[$id]['string'];
-        set_transient('bcst_tx_selection_'.get_current_user_id(),$selection,3600);
-        wp_send_json_success(array('url'=>bcst_bt_url()));
+        $kind=bcst_bailian_input('kind');$taxonomy=bcst_bailian_input('taxonomy');
+        if (!in_array($kind,array('content','taxonomy'),true)) throw new Exception('无效翻译入口。');
+        if ($kind==='taxonomy' && !in_array($taxonomy,bcst_tx_taxonomies(),true)) throw new Exception('无效分类类型。');
+        $ids=isset($_POST['ids'])&&is_array($_POST['ids'])?array_values(array_unique(array_filter(array_map('absint',array_filter($_POST['ids'],'is_scalar'))))):array();
+        if (!$ids || count($ids)>100) throw new Exception('请勾选 1 至 100 条内容后翻译。');
+        $selection=array('kind'=>$kind,'ids'=>$ids,'taxonomy'=>$taxonomy);
+        $tasks=bcst_tx_plan($selection,array_keys(bcst_bailian_languages()),false,'');
+        if (!$tasks) throw new Exception('没有可处理的内容。');
+        $run=wp_generate_uuid4();$state=array('tasks'=>$tasks);
+        if (!set_transient(bcst_tx_run_key($run),$state,DAY_IN_SECONDS)) throw new Exception('无法保存翻译进度，请检查数据库。');
+        $response=bcst_tx_run_progress($state);$response['run']=$run;
     } catch (Throwable $e) { wp_send_json_error(array('message'=>$e->getMessage()),400); }
+    wp_send_json_success($response);
+});
+add_action('wp_ajax_bcst_tx_step',function(){
+    if (!current_user_can('manage_options')) wp_send_json_error(array('message'=>'没有操作权限。'),403);
+    check_ajax_referer('bcst_tx_select','nonce');
+    $locked=false;
+    try {
+        bcst_bt_preflight();
+        $key=bcst_tx_run_key(bcst_bailian_input('run'));
+        if (!add_option('bcst_bt_lock',time(),'',false)) throw new Exception('已有翻译请求正在执行，请稍后再点击翻译。');
+        $locked=true;
+        $state=get_transient($key);
+        if (!$state) throw new Exception('翻译进度已过期，请刷新列表后重新勾选翻译。');
+        foreach ($state['tasks'] as &$task) if ($task['status']==='pending') {
+            try { bcst_tx_tick($task); }
+            catch (Throwable $e) { $failure='#'.$task['id'].' → '.$task['lang'].'：'.$e->getMessage(); }
+            break;
+        }
+        unset($task);
+        // Preserve completed fragments even after a failed request; no automatic retry.
+        $state['revision']=($state['revision']??0)+1;
+        if (!set_transient($key,$state,DAY_IN_SECONDS)) throw new Exception('无法保存翻译进度，已停止，请检查数据库。');
+        $response=bcst_tx_run_progress($state);
+        if (isset($failure)) { $response['halted']=true;$response['message'].='；已停止：'.$failure; }
+    } catch (Throwable $e) { $error=$e->getMessage(); }
+    finally { if ($locked) delete_option('bcst_bt_lock'); }
+    if (isset($error)) wp_send_json_error(array('message'=>$error),400);
+    wp_send_json_success($response);
 });
 function bcst_tx_plan($selection,$targets,$overwrite,$source_lang) {
     $tasks=array();
@@ -130,22 +158,6 @@ function bcst_tx_plan($selection,$targets,$overwrite,$source_lang) {
         bcst_tx_add($tasks,$selection['kind'],$selection['kind']==='string'?$id:(int)$id,$lang,$overwrite,$extra);
     }
     return array_values($tasks);
-}
-function bcst_tx_form() {
-    $selection=get_transient('bcst_tx_selection_'.get_current_user_id());
-    if (!$selection) { echo '<p>尚未选择内容，或选择已过期。请返回对应列表，勾选内容并点击“翻译”。下方已有任务仍可继续执行。</p>';return; }
-    $labels=array('content'=>'产品 / 文章 / 页面 / 媒体文字','taxonomy'=>'分类 / 标签','string'=>'公共文字 / 工业站文案');
-    echo '<h2>确认所选内容</h2><p>范围：'.esc_html($labels[$selection['kind']]).'；已选择 '.count($selection['ids']).' 条。自动翻译到其他所有已配置语言，列表筛选只决定显示哪些内容。</p>';
-    echo '<p>补齐缺失译文，已有译文（含草稿）跳过。新产品、文章、页面保存为草稿；分类、公共文字、媒体文字保存后立即生效。关联分类、标签、父页面及页面绑定目标会自动补齐（已有依赖不覆盖）。请审核结果。</p>';
-    echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'"><input type="hidden" name="action" value="bcst_bt_create"><input type="hidden" name="selection_hash" value="'.esc_attr(hash('sha256',wp_json_encode($selection))).'">';wp_nonce_field('bcst_bt_create');
-    if ($selection['kind']==='string') {
-        echo '<p><label>公共原文实际语言 <select name="source_lang">';
-        foreach (bcst_bailian_languages() as $code=>$language) echo '<option value="'.esc_attr($code).'" '.selected($code,pll_default_language(),false).'>'.esc_html($language['name']).'</option>';
-        echo '</select></label> 公共文字没有独立语言属性，请按原文选择。不同语言混合的文字应分批处理。</p>';
-    }
-    echo '<p>语言范围：'.esc_html(implode('、',array_column(bcst_bailian_languages(),'name'))).'。每条内容自动排除自身语言，已有译文（含草稿）始终跳过。</p>';
-    echo '<p><label><input type="checkbox" required name="consent" value="1">同意将文字发送到当前配置的翻译服务并承担接口费用；创建任务替换本人旧任务进度，已生成内容保留。</label></p>';
-    submit_button('创建翻译任务（不立即调用接口）');echo '</form><hr>';
 }
 // Translate attachment text at render time without modifying or duplicating the binary file.
 add_filter('wp_get_attachment_image_attributes',function($attr,$attachment){

@@ -53,7 +53,7 @@ function bcst_bailian_endpoint($config) {
 function bcst_bailian_translate($text, $source, $target) {
     // Mongolian is user-requested; let the provider decide availability, never fake success.
     $languages = bcst_bailian_languages();
-    if (!isset($languages[$source], $languages[$target])) throw new Exception('源语言或目标语言已不存在，请在 Polylang 配置语言后重新创建任务。');
+    if (!isset($languages[$source], $languages[$target])) throw new Exception('源语言或目标语言已不存在，请在 Polylang 配置语言后重新勾选翻译。');
     if (!is_string($text) || trim($text) === '' || strlen($text) > 6000) throw new Exception('测试文字不能为空，且最多 6000 字节。长文批量翻译需分段处理。');
     $config = bcst_bailian_config();
     if (!in_array($config['model'], bcst_bailian_models(), true)) throw new Exception('模型配置无效。');
@@ -110,7 +110,7 @@ function bcst_bailian_status() {
 function bcst_bailian_page() {
     if (!current_user_can('manage_options')) return;
     $config = bcst_bailian_config();
-    echo '<section id="bcst-bailian-settings" style="background:#fff;border:1px solid #c3c4c7;padding:20px;margin:20px 0;max-width:1160px"><h2>百炼翻译配置</h2><p>配置仅供服务器调用，不在前台输出密钥。原设置已保留，无需重复填写；保存后可从下方各类内容入口进入翻译任务。</p><div class="notice notice-warning inline"><p>蒙古语已开放调用，使用当前模型并要求西里尔蒙古文；官方未列出支持保证，请先测试。接口拒绝时显示失败，不自动换模型。译文须人工审核。</p></div>';
+    echo '<section id="bcst-bailian-settings" style="background:#fff;border:1px solid #c3c4c7;padding:20px;margin:20px 0;max-width:1160px"><h2>百炼翻译配置</h2><p>配置仅供服务器调用，不在前台输出密钥。原设置已保留，无需重复填写；保存后可从下方各类内容入口勾选内容并直接翻译，进度显示在翻译按钮旁。</p><div class="notice notice-warning inline"><p>蒙古语已开放调用，使用当前模型并要求西里尔蒙古文；官方未列出支持保证，请先测试。接口拒绝时显示失败，不自动换模型。译文须人工审核。</p></div>';
     $notice = get_transient('bcst_bailian_notice_' . get_current_user_id());
     if ($notice) { echo '<div class="notice notice-info inline"><p>' . esc_html($notice) . '</p></div>'; delete_transient('bcst_bailian_notice_' . get_current_user_id()); }
     echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '"><input type="hidden" name="action" value="bcst_bailian_save">';

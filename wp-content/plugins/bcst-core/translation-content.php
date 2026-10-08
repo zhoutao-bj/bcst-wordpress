@@ -1,5 +1,5 @@
 <?php
-/** Content adapters for the administrator-driven translation queue. */
+/** Content adapters for inline list translation. */
 defined('ABSPATH') || exit;
 
 function bcst_tx_types() { return array('post','page','bcst_product','attachment'); }
@@ -95,7 +95,7 @@ function bcst_tx_add(&$tasks,$kind,$id,$lang,$overwrite=false,$extra=array(),$pa
     $task['planned_source']=hash('sha256',wp_json_encode($source));
     $task['planned_target']=bcst_tx_target_hash($task);
     $tasks[$key]=$task;
-    if (count($tasks)>3000) throw new Exception('任务超过 3000 项，请分批选择。');
+    if (count($tasks)>3000) throw new Exception('翻译范围超过 3000 项，请分批选择。');
 }
 function bcst_tx_mapped($id,$lang,$term=false) {
     if (!$id) return 0;
@@ -104,7 +104,7 @@ function bcst_tx_mapped($id,$lang,$term=false) {
     return (int)$translated;
 }
 function bcst_tx_commit(&$task,$source,$fields) {
-    if (bcst_tx_target_hash($task)!==$task['planned_target']) throw new Exception('目标译文在任务创建后已变更，为保护人工编辑已停止；请重新创建任务。');
+    if (bcst_tx_target_hash($task)!==$task['planned_target']) throw new Exception('目标译文在本次翻译开始后已变更，为保护人工编辑已停止；请刷新列表后重新勾选翻译。');
     $lang=$task['lang'];$id=bcst_tx_target($task);
     if ($task['kind']==='string') {
         list($mo,$language)=bcst_tx_mo($lang);$row=$source['registration'];
@@ -169,8 +169,8 @@ function bcst_tx_tick(&$task) {
     $source=bcst_tx_source($task);$languages=bcst_bailian_languages();
     if (!isset($languages[$source['language']],$languages[$task['lang']])) throw new Exception('源语言或目标语言不存在。');
     if ($source['language']===$task['lang'] || (empty($task['overwrite']) && bcst_tx_target($task)!=='' && bcst_tx_target($task)!==0)) { $task['status']='skipped';unset($task['parts']);return; }
-    if (hash('sha256',wp_json_encode($source))!==$task['planned_source']) throw new Exception('源内容已变更，请重新创建任务。');
-    if (bcst_tx_target_hash($task)!==$task['planned_target']) throw new Exception('目标译文已变更，请重新创建任务，避免覆盖人工编辑。');
+    if (hash('sha256',wp_json_encode($source))!==$task['planned_source']) throw new Exception('源内容已变更，请刷新列表后重新勾选翻译。');
+    if (bcst_tx_target_hash($task)!==$task['planned_target']) throw new Exception('目标译文已变更，请刷新列表后重新勾选翻译，避免覆盖人工编辑。');
     if (!isset($task['parts'])) foreach ($source['fields'] as $key=>$value) $task['parts'][$key]=bcst_tx_parts((string)$value);
     foreach ($task['parts'] as &$parts) foreach ($parts as &$part) {
         if (isset($part['text'])) continue;
